@@ -1,0 +1,1 @@
+from .max_prob_initializer import MaxProbInitializer
