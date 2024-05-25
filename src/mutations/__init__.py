@@ -6,12 +6,13 @@ import importlib
 import pkgutil
 
 
-def load_subclasses():
+def load_subclasses(package_name=__name__):
     """
     Loading subclasses dynamically so they are registered by the metaclasses.
     """
-    for _, name, _ in pkgutil.iter_modules(__path__):
-        importlib.import_module(f".{name}", __package__)
-
+    package = importlib.import_module(package_name)
+    for _, name, is_pkg in pkgutil.walk_packages(package.__path__, package.__name__ + '.'):
+        if not is_pkg:
+            importlib.import_module(name)
 
 load_subclasses()

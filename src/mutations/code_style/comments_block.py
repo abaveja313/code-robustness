@@ -1,4 +1,4 @@
-from mutations import RegisteredTransformation
+from mutations import RegisteredTransformation, CRT
 
 
 class BlockCommentsTransformer(RegisteredTransformation, category=CRT.code_style):

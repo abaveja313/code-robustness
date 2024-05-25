@@ -5,7 +5,7 @@ from typing import Type
 from mutations import OneByOneTransformer, OneByOneVisitor, CRT
 
 
-class DecimalBaseVisitor(OneByOneVisitor, ABC, abstract=True):
+class DecimalBaseVisitor(OneByOneVisitor, ABC):
     @abstractmethod
     def convert(self, num: int) -> str:
         pass

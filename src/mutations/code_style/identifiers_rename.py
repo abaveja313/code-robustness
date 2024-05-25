@@ -57,27 +57,14 @@ def collect_declared_identifiers(source_code):
     return list(collector.declared_idents)
 
 
-class IdentifierRenameVisitorBase(OneByOneVisitor, ABC, abstract=True):
+class IdentifierRenameVisitorBase(OneByOneVisitor, ABC):
     def is_transformable(self, node):
         return (isinstance(node, ast.Assign) or isinstance(node, ast.FunctionDef)
                 or isinstance(node, ast.For) or isinstance(node, ast.With))
 
     @abstractmethod
-    def next_identifier(self) -> typing.Generator[str]:
-        consumed_tokens = collect_declared_identifiers(self.source_code)
-        existing_set = set(consumed_tokens)
-
-        # Check single letter identifiers first
-        for letter in string.ascii_lowercase:
-            if letter not in existing_set:
-                yield letter
-
-        # Check double letter identifiers
-        for first_letter in string.ascii_lowercase:
-            for second_letter in string.ascii_lowercase:
-                identifier = first_letter + second_letter
-                if identifier not in existing_set:
-                    yield identifier
+    def next_identifier(self) -> typing.Generator[str, None, None]:
+        pass
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         next_ident = self.next_identifier()
@@ -106,7 +93,7 @@ class IdentifierRenameVisitorBase(OneByOneVisitor, ABC, abstract=True):
 
 
 class IdentifierRenameVisitor(IdentifierRenameVisitorBase):
-    def next_identifier(self) -> typing.Generator[str]:
+    def next_identifier(self) -> typing.Generator[str, None, None]:
         consumed_tokens = collect_declared_identifiers(self.source_code)
         existing_set = set(consumed_tokens)
 
@@ -132,7 +119,7 @@ class IdentifierObfuscateVisitor(IdentifierRenameVisitorBase):
     def name(self):
         return "LexicalIdentifierObfuscate"
 
-    def next_identifier(self) -> typing.Generator[str]:
+    def next_identifier(self) -> typing.Generator[str, None, None]:
         while True:
             yield ''.join(random.choice(string.ascii_letters) for _ in range(self.var_size))
 

@@ -8,7 +8,7 @@ from mutations import (
 )
 
 
-class MathInversionVisitor(OneByOneVisitor, ABC, abstract=True):
+class MathInversionVisitor(OneByOneVisitor, ABC):
     @property
     @abstractmethod
     def op_type(self):
