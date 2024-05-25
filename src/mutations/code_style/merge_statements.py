@@ -36,7 +36,7 @@ class MergeConsecutiveStatements:
         return merged_versions
 
     def process_node(self, node):
-        if isinstance(node, (ast.FunctionDef, ast.If, ast.For, ast.While)):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.If, ast.For, ast.While)):
             # Process main body
             merged_bodies = self.merge_statements(node.body)
             for merged_body in merged_bodies:
@@ -73,3 +73,10 @@ class MergeStatementsTransformer(RegisteredTransformation, category=CRT.code_sty
             return list(merger.get_merged_versions())
 
         return process
+
+code = """
+a = 3
+b = 4
+c = 5
+"""
+print(MergeStatementsTransformer().attack_func(code))

@@ -6,7 +6,8 @@ from abc import ABC, abstractmethod
 import random
 from typing import Type
 
-from mutations import OneByOneVisitor, OneByOneTransformer, CRT
+from mutations import CRT, OneByOneVisitor, OneByOneTransformer
+from shared.ast_utils import is_unary_assign
 
 
 def one_by_one(key: str, obj: object):
@@ -34,8 +35,13 @@ class DeclaredIdentifiersCollector(ast.NodeVisitor):
 
     def visit_Assign(self, node):
         for target in node.targets:
-            if isinstance(target, ast.Name):
-                self.declared_idents.add(target.id)
+            for node in ast.walk(target):
+                if isinstance(target, ast.Name):
+                    self.declared_idents.add(target.id)
+                elif isinstance(target, ast.Tuple):
+                    for elt in target.elts:
+                        if isinstance(elt, ast.Name):
+                            self.declared_idents.add(elt.id)
         self.generic_visit(node)
 
     def visit_For(self, node):
@@ -59,36 +65,26 @@ def collect_declared_identifiers(source_code):
 
 class IdentifierRenameVisitorBase(OneByOneVisitor, ABC):
     def is_transformable(self, node):
-        return (isinstance(node, ast.Assign) or isinstance(node, ast.FunctionDef)
-                or isinstance(node, ast.For) or isinstance(node, ast.With))
+        return isinstance(node, (ast.FunctionDef, ast.For)) or is_unary_assign(node)
 
     @abstractmethod
     def next_identifier(self) -> typing.Generator[str, None, None]:
         pass
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
-        next_ident = self.next_identifier()
-        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
-            node.targets[0].id = next(next_ident)
+        id_gen = self.next_identifier()
+        if is_unary_assign(node):
+            return ast.Assign(
+                targets=[ast.Name(id=next(id_gen), ctx=ast.Store())],
+                value=node.value
+            )
+        elif isinstance(node, ast.FunctionDef):
+            for idx, arg in enumerate(node.args.args):
+                arg.arg = next(id_gen)
             return node
-        if isinstance(node, ast.For) and isinstance(node.target, ast.Name):
-            node.target.id = next(next_ident)
+        elif isinstance(node, ast.For):
+            node.target.id = next(id_gen)
             return node
-        if isinstance(node, ast.With):
-            mutated = []
-            for new_node, new_item in one_by_one('items', node):
-                if isinstance(new_item.optional_vars, ast.Name):
-                    new_item.optional_vars.id = next(next_ident)
-                    mutated.append(new_node)
-            return mutated
-
-        if isinstance(node, ast.FunctionDef):
-            mutated = []
-            for new_node, new_arg in one_by_one('args', node.args):
-                new_arg.arg = next(next_ident)
-                mutated.append(new_node)
-            return mutated
-
         return node
 
 
@@ -114,10 +110,6 @@ class IdentifierObfuscateVisitor(IdentifierRenameVisitorBase):
     @property
     def var_size(self):
         return 8
-
-    @property
-    def name(self):
-        return "LexicalIdentifierObfuscate"
 
     def next_identifier(self) -> typing.Generator[str, None, None]:
         while True:

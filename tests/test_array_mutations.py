@@ -112,7 +112,7 @@ class TestNestedArrayInitializerVisitor:
 
     def test_nested_array_initializer_unpacking(self):
         code = """a, b = [1, 2]"""
-        expected = """(a, b) = [[1, 2]]"""
+        expected = []
         verify_visitor(NestedArrayInitializerVisitor, code, expected)
 
     def test_nested_array_initializer_compound(self):

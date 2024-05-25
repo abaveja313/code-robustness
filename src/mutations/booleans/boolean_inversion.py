@@ -2,6 +2,7 @@ import ast
 from typing import Type
 
 from mutations import OneByOneVisitor, OneByOneTransformer, CRT
+from shared.ast_utils import is_unary_assign
 
 
 class SimplifyTransformer(ast.NodeTransformer):
@@ -115,7 +116,8 @@ class SecondInversionVisitor(OneByOneVisitor):
 
     def is_transformable(self, node):
         return (isinstance(node, (ast.If, ast.While)) or
-                isinstance(node, (ast.Assign, ast.Return)) and self.is_boolean_expr(node.value))
+                (is_unary_assign(node) and self.is_boolean_expr(node.value)) or
+                (isinstance(node, ast.Assign) and self.is_boolean_expr(node.value)))
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         if isinstance(node, (ast.If, ast.While)):

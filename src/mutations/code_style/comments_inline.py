@@ -1,28 +1,29 @@
 from typing import Callable
-
 from mutations import RegisteredTransformation, CRT
 
 
-class LexicalCommentsInlineTransformer(RegisteredTransformation, category=CRT.code_style):
+class InlineCommentsTransformer(RegisteredTransformation, category=CRT.code_style):
+
     @property
     def comment(self):
         return "I am a comment"
 
     @property
     def deterministic(self):
-        return True
+        return False
 
     def transform(self, code: str):
         results = []
-        new_lines = code.split('\n')
-        for idx in range(len(new_lines)):
-            copied = new_lines.copy()
-            # We only care about indented lines
-            if not new_lines[idx].startswith('\t'):
-                continue
+        lines = code.split('\n')
 
-            copied[idx] += f" # {self.comment}"
+        # Add inline comment to each indented line
+        for idx, line in enumerate(lines):
+            if line.strip() == '' or not line.startswith(' '):
+                continue  # Skip empty lines and non-indented lines
+            copied = lines.copy()
+            copied[idx] = line.rstrip() + f"  # {self.comment}"
             results.append('\n'.join(copied))
+
         return results
 
     @property

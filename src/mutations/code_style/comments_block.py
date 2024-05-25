@@ -1,25 +1,32 @@
+import textwrap
+
 from mutations import RegisteredTransformation, CRT
 
 
 class BlockCommentsTransformer(RegisteredTransformation, category=CRT.code_style):
+
     @property
     def comment(self):
         return "# I am a comment\n# I am a comment"
 
     @property
     def deterministic(self):
-        return True
+        return True  # Set to False to generate different variations
 
     def transform(self, code: str):
-        results = []
         new_lines = code.split('\n')
-        for idx in range(len(new_lines)):
-            copied = new_lines.copy()
-            if new_lines[idx].startswith('\t'):
-                indentation_level = len(new_lines[idx]) - len(new_lines[idx].lstrip('\t'))
-                indented_comment = "\n".join([f"\t{self.comment}"] * indentation_level)
-                copied.insert(idx, indented_comment)
-            results.append('\n'.join(copied))
+        results = []
+
+        for i, line in enumerate(new_lines):
+            if len(line.strip()) == 0:
+                continue  # Skip empty lines
+            indentation_level = len(line) - len(line.lstrip())
+            if indentation_level > 0:
+                copied = new_lines.copy()
+                indented_comment = [" " * indentation_level + cmt for cmt in self.comment.split('\n')]
+                copied.insert(i, "\n".join(indented_comment))
+                results.append('\n'.join(copied))
+
         return results
 
     @property

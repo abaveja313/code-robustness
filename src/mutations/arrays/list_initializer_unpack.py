@@ -4,6 +4,7 @@ from typing import Type
 from mutations import CRT
 from mutations.mutation import OneByOneTransformer
 from mutations.visitor import OneByOneVisitor
+from shared.ast_utils import is_unary_assign
 
 
 class ListInitializerUnpackVisitor(OneByOneVisitor):
@@ -22,7 +23,7 @@ class ListInitializerUnpackVisitor(OneByOneVisitor):
         return new_assign
 
     def is_transformable(self, node):
-        return isinstance(node, ast.Assign) and isinstance(node.value, ast.List)
+        return is_unary_assign(node) and isinstance(node.value, ast.List)
 
 
 class ListInitializerUnpackTransformer(OneByOneTransformer, category=CRT.arrays):

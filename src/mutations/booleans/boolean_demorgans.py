@@ -5,6 +5,7 @@ from mutations import (
     OneByOneTransformer,
     OneByOneVisitor, CRT,
 )
+from shared.ast_utils import is_unary_assign
 
 
 class BooleanDemorgansVisitor(OneByOneVisitor):
@@ -54,7 +55,7 @@ class BooleanDemorgansVisitor(OneByOneVisitor):
             node.test = apply_demorgans_expr(node.test)
         elif isinstance(node, ast.Return):
             node.value = apply_demorgans_expr(node.value)
-        elif isinstance(node, ast.Assign):
+        elif is_unary_assign(node):
             node.value = apply_demorgans_expr(node.value)
         return node
 

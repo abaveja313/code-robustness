@@ -7,6 +7,8 @@ from mutations import (
     OneByOneVisitor, CRT,
 )
 
+from shared.ast_utils import StatementGroup
+
 
 class UnusedVariableVisitor(OneByOneVisitor):
 
@@ -14,14 +16,15 @@ class UnusedVariableVisitor(OneByOneVisitor):
     def weird_assign():
         return ast.Assign(
             targets=[ast.Name('foo')],
-            value=random.randint(1, 10)
+            value=ast.Constant(value=3)
         )
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
-        return ast.Module(body=[node, self.weird_assign()])
+        return StatementGroup(body=[node, self.weird_assign()])
 
     def is_transformable(self, node):
-        return isinstance(node, ast.stmt)
+        return (isinstance(node, (ast.Call, ast.Assign, ast.Expr)) and hasattr(node, 'parent') and
+                isinstance(node.parent, (ast.If, ast.For, ast.While, ast.FunctionDef, ast.Module)))
 
 
 class UnusedVariableTransformer(OneByOneTransformer, category=CRT.code_style):

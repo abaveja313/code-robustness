@@ -5,7 +5,7 @@ from abc import abstractmethod, ABC
 
 from asttokens import ASTTokens
 
-from shared.ast_utils import dfs_walk, NodeReplacer
+from shared.ast_utils import dfs_walk, NodeReplacer, StatementGroupExpander
 
 
 class OneByOneVisitor(ABC):
@@ -16,12 +16,13 @@ class OneByOneVisitor(ABC):
         self.transformations: list[ast.AST] = []
         self.source_code = code
 
-        self._add_node_uuids(self.ast_tree)
+        self._add_node_metadata(self.ast_tree)
 
-    def _add_node_uuids(self, node: ast.AST):
+    def _add_node_metadata(self, node: ast.AST):
         node.uuid = uuid.uuid4().hex
         for child in ast.iter_child_nodes(node):
-            self._add_node_uuids(child)
+            child.parent = node
+            self._add_node_metadata(child)
 
     @property
     def name(self):
@@ -54,5 +55,8 @@ class OneByOneVisitor(ABC):
             ast.copy_location(node, perturbed)
             new_tree = copy.deepcopy(self.ast_tree)
             perturbed_tree = NodeReplacer(node, perturbed).visit(new_tree)
-            perturbed_tree = ast.fix_missing_locations(perturbed_tree)
-            self.transformations.append(perturbed_tree)
+
+            # This expands basic blocks created by the transformation into the parent node's body
+            inlined_tree = StatementGroupExpander().visit(perturbed_tree)
+            inlined_tree = ast.fix_missing_locations(inlined_tree)
+            self.transformations.append(inlined_tree)

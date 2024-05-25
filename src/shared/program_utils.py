@@ -1,6 +1,7 @@
 import ast
 import copy
 import io
+import textwrap
 import tokenize
 from typing import List
 
@@ -18,6 +19,7 @@ def remove_pass(*, inputs: List[str]) -> List[str]:
 
 
 def normalize_indentation(code: str) -> str:
+    code = textwrap.dedent(code)
     # Split the input code into lines and strip trailing whitespace
     lines = [line.rstrip() for line in code.splitlines()]
 
@@ -26,7 +28,6 @@ def normalize_indentation(code: str) -> str:
         lines.pop(0)
 
     leading_spaces = [len(line) - len(line.lstrip()) for line in lines if line.strip()]
-
     if not leading_spaces:
         return ""
 
@@ -52,8 +53,7 @@ def normalize_indentation(code: str) -> str:
         lines = [line[a:] if line.startswith(" " * a) else line for line in lines]
 
     normalized_lines = [normalize_line(line) for line in lines]
-    indented_lines = ["    " + line for line in normalized_lines]
-    return "\n".join(indented_lines)
+    return "\n".join(normalized_lines)
 
 
 def remove_comments_and_docstrings(source, remove_docstrings=False):
@@ -224,3 +224,24 @@ def one_by_one(key: str, obj: object):
     for idx, value in enumerate(getattr(obj, key)):
         new_obj = copy.deepcopy(obj)
         yield new_obj, getattr(new_obj, key)[idx]
+
+expected = [
+            """
+            def doSomething(a, b):
+                if name == 'foo':  # I am a comment
+                    doSomething(1, 2)
+                return a + b
+            """,
+            """
+            def doSomething(a, b):
+                if name == 'foo':
+                    doSomething(1, 2)  # I am a comment
+                return a + b
+            """,
+            """
+            def doSomething(a, b):
+                if name == 'foo':
+                    doSomething(1, 2)
+                return a + b  # I am a comment
+            """
+        ]
