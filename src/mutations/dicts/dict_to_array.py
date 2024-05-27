@@ -7,8 +7,11 @@ from mutations import OneByOneVisitor, OneByOneTransformer, CRT
 class DictToArrayVisitor(OneByOneVisitor):
 
     def is_transformable(self, node):
-        return (isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict) and len(node.value.keys) == 0 and len(
-            node.value.values) == 0)
+        if isinstance(node, ast.Assign):
+            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+                if isinstance(node.value, ast.Dict):
+                    return len(node.value.keys) == 0
+        return False
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         return ast.Assign(

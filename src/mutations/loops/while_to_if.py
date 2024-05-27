@@ -12,7 +12,8 @@ class WhileToIfVisitor(OneByOneVisitor):
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         return ast.If(
             body=[ast.Pass()],
-            test=node.test
+            test=node.test,
+            orelse=[]
         )
 
     def is_transformable(self, node):

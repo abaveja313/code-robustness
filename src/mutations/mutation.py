@@ -12,9 +12,8 @@ from shared.program_utils import parse_stem
 class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
 
     @property
-    @abstractmethod
     def deterministic(self):
-        pass
+        return True
 
     @property
     @abstractmethod

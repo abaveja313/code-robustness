@@ -6,12 +6,15 @@ from mutations import (
     OneByOneTransformer, CRT,
 )
 
+from shared.ast_utils import StatementGroup
+
 
 class ForToWhileVisitor(OneByOneVisitor):
 
     def is_transformable(self, node):
         return (
                 isinstance(node, ast.For)
+                and not isinstance(node.target, ast.Tuple)
                 and isinstance(node.iter, ast.Call)
                 and isinstance(node.iter.func, ast.Name)
                 and node.iter.func.id == "range"
@@ -91,7 +94,7 @@ class ForToWhileVisitor(OneByOneVisitor):
             col_offset=node.col_offset,
         )
 
-        return [init_assign, new_while]
+        return StatementGroup(body=[init_assign, new_while])
 
 
 class ForToWhileTransformer(OneByOneTransformer, category=CRT.loops):

@@ -65,22 +65,9 @@ class DivisionInversionVisitor(MathInversionVisitor):
     def transform_node(self, node):
         node.op = ast.Mult()
         node.right = ast.BinOp(
-            op=ast.Mult(), left=ast.Constant(1.0), right=node.right
+            op=ast.Pow(), left=node.right, right=ast.Constant(-1)
         )
-        return ast.Call(
-            func=ast.Name(id="int", ctx=ast.Load()),
-            args=[
-                ast.BinOp(
-                    left=node.left,
-                    op=ast.Div(),
-                    right=ast.BinOp(
-                        left=ast.Constant(1.0), op=ast.Div(), right=node.right
-                    ),
-                )
-            ],
-            keywords=[],
-        )
-
+        return node
 
 class ModuloInversionVisitor(MathInversionVisitor):
     @property

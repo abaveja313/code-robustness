@@ -11,8 +11,12 @@ from mutations import (
 class EnumerateForVisitor(OneByOneVisitor):
 
     def is_transformable(self, node):
-        return isinstance(node.iter, ast.Call) and isinstance(node.iter.func,
-                                                              ast.Name) and node.iter.func.id == 'enumerate'
+        return (
+                isinstance(node, ast.For) and
+                not (isinstance(node.iter, ast.Call) and
+                     isinstance(node.iter.func, ast.Name) and
+                     node.iter.func.id == 'enumerate')
+        )
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         new_iter = ast.Call(

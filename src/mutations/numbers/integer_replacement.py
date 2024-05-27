@@ -13,12 +13,12 @@ class IntegerReplacementVisitor(OneByOneVisitor):
         new_left = node.value + self.magic_constant
         return ast.BinOp(
             left=ast.Constant(value=new_left),
-            op=ast.Sub(),
+            op=ast.Add(),
             right=ast.Constant(value=-self.magic_constant)
         )
 
     def is_transformable(self, node):
-        return isinstance(ast.Constant) and isinstance(node.value, int)
+        return isinstance(node, ast.Constant) and isinstance(node.value, int)
 
 
 class IntegerReplacementTransformer(OneByOneTransformer, category=CRT.numbers):

@@ -3,6 +3,8 @@ from typing import Type
 
 from mutations import OneByOneVisitor, OneByOneTransformer, CRT
 
+from shared.ast_utils import is_unary_assign
+
 
 class DictInitializerUnpackVisitor(OneByOneVisitor):
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
@@ -20,7 +22,7 @@ class DictInitializerUnpackVisitor(OneByOneVisitor):
         return new_node
 
     def is_transformable(self, node):
-        return isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
+        return is_unary_assign(node) and isinstance(node.value, ast.Dict)
 
 
 class DictInitializerUnpackTransformer(OneByOneTransformer, category=CRT.dicts):

@@ -33,6 +33,16 @@ def dfs_walk(node):
         yield from dfs_walk(child)
 
 
+def has_elif_block(node: ast.If):
+    if isinstance(node, ast.If):
+        for child in node.orelse:
+            if isinstance(child, ast.If):
+                return True
+            if has_elif_block(child):
+                return True
+    return False
+
+
 def is_unary_assign(node):
     return isinstance(node, ast.Assign) and not isinstance(node.targets[0], ast.Tuple)
 

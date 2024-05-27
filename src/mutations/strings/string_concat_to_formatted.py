@@ -4,13 +4,11 @@ from typing import Type
 from mutations import OneByOneVisitor, OneByOneTransformer, CRT
 
 
+
 class StringConcatToFStringVisitor(OneByOneVisitor):
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         components = self.collect_components(node)
-
-        # Create the f-string node
         fstring_node = self.create_fstring(components)
-
         return fstring_node
 
     def collect_components(self, node):
@@ -34,8 +32,8 @@ class StringConcatToFStringVisitor(OneByOneVisitor):
 
     def is_transformable(self, node):
         return (isinstance(node, ast.BinOp) and
-                (isinstance(node.left, ast.Constant) and isinstance(node.left.value, str)) or
-                (isinstance(node.right, ast.Constant) and isinstance(node.right.value, str)))
+                ((isinstance(node.left, ast.Constant) and isinstance(node.left.value, str)) or
+                 (isinstance(node.right, ast.Constant) and isinstance(node.right.value, str))))
 
 
 class StringConcatToFStringTransformer(OneByOneTransformer, category=CRT.strings):

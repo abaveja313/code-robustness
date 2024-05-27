@@ -224,24 +224,3 @@ def one_by_one(key: str, obj: object):
     for idx, value in enumerate(getattr(obj, key)):
         new_obj = copy.deepcopy(obj)
         yield new_obj, getattr(new_obj, key)[idx]
-
-expected = [
-            """
-            def doSomething(a, b):
-                if name == 'foo':  # I am a comment
-                    doSomething(1, 2)
-                return a + b
-            """,
-            """
-            def doSomething(a, b):
-                if name == 'foo':
-                    doSomething(1, 2)  # I am a comment
-                return a + b
-            """,
-            """
-            def doSomething(a, b):
-                if name == 'foo':
-                    doSomething(1, 2)
-                return a + b  # I am a comment
-            """
-        ]

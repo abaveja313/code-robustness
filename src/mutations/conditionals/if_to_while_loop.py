@@ -8,7 +8,8 @@ class IfToWhileLoopVisitor(OneByOneVisitor):
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         while_loop = ast.While(
             test=node.test,
-            body=[ast.Pass()]
+            body=[ast.Pass()],
+            orelse=[]
         )
         return while_loop
 

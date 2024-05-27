@@ -5,7 +5,7 @@ from mutations import (
     OneByOneTransformer,
     OneByOneVisitor, CRT,
 )
-
+from shared.ast_utils import has_elif_block
 
 class IfToConditionalVisitor(OneByOneVisitor):
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
@@ -31,6 +31,9 @@ class IfToConditionalVisitor(OneByOneVisitor):
 
     def is_transformable(self, node):
         if isinstance(node, ast.If):
+            if has_elif_block(node):
+                return False
+
             if len(node.body) == 1 and len(node.orelse) == 1:
                 if_body = node.body[0]
                 else_body = node.orelse[0]

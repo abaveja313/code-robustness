@@ -10,6 +10,7 @@ from shared.mutated_stem import MutatedStem
 from inference.stem_evaluator import StemEvaluator
 from loguru import logger
 
+
 @dataclass
 class BenchmarkResult:
     mutation: str
