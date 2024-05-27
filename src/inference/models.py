@@ -29,7 +29,7 @@ def extra_eos_for_direct_completion(dataset) -> List[str]:
     if dataset.lower() == "humaneval":
         return ["\ndef ", "\nclass ", "\nimport ", "\nfrom ", "\nassert "]
     elif dataset.lower() == "mbpp":
-        return ['\n"""', "\nassert"]
+        return ["\ndef ", "\nclass ", "\nimport ", "\nfrom ", "\nassert "]
     raise ValueError(f"Unknown dataset: {dataset}")
 
 
@@ -146,7 +146,7 @@ class VllmDecoder(DecoderBase):
     def is_direct_completion(self) -> bool:
         return self.tokenizer.chat_template is None
 
-    def complete_stems(self, prompts: List[str], num_samples: int = 1, do_sample: bool = True) -> List[str]:
+    def complete_stems(self, prompt: str, num_samples: int = 1, do_sample: bool = True) -> List[str]:
 
         vllm_outputs = self.llm.generate(
             prompts,
@@ -196,11 +196,9 @@ class GeneralVllmDecoder(VllmDecoder):
         prompt = make_codegen_prompt(prompt, self.tokenizer)
         return VllmDecoder.codegen(self, prompt, do_sample, num_samples)
 
-    def complete_stems(self, prompts: List[str], num_samples: int = 1, do_sample: bool = True) -> List[str]:
-        fprompts = [make_stem_completion_prompt(p, self.tokenizer) for p in prompts]
-
+    def complete_stems(self, prompt: str, num_samples: int = 1, do_sample: bool = True) -> List[str]:
         vllm_outputs = self.llm.generate(
-            fprompts,
+            make_stem_completion_prompt(prompt, self.tokenizer),
             SamplingParams(
                 temperature=self.temperature,
                 max_tokens=self.max_new_tokens,

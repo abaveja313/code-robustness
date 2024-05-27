@@ -1,14 +1,13 @@
 import os
 import pickle
 import time
-from functools import cached_property
 from typing import List
 
 import joblib
 import numpy as np
 import tqdm
-from evalplus.data import get_human_eval_plus, get_human_eval_plus_hash
-from evalplus.evaluate import check_correctness, get_groundtruth, get_mbpp_plus, get_mbpp_plus_hash
+from evalplus.evaluate import check_correctness
+from inference.dataset_loader import DatasetManager
 from inference.models import VllmDecoder
 from loguru import logger
 from shared.program_utils import remove_comments_and_docstrings, normalize_indentation
@@ -28,8 +27,8 @@ class MaxProbInitializer:
     def __init__(
             self,
             model: VllmDecoder,
+            dataset_manager: DatasetManager,
             problem_id: str,
-            dataset: str = "mbpp",
             passing_threshold: float = 1.0,
             num_samples: int = 300,
             batch_size: int = 50,
@@ -40,36 +39,15 @@ class MaxProbInitializer:
         if mini and noextreme:
             raise ValueError("Cannot specify both mini=True and noextreme=True")
 
-        self.dataset_params = dict(mini=mini, noextreme=noextreme)
-        self.dataset_name = dataset
+        self.dataset_manager = dataset_manager
         self.task_id = problem_id
-        self.problem = self.dataset[problem_id]
+        self.problem = self.dataset_manager.get_problem(problem_id)
         self.batch_size = batch_size
         self.passing_threshold = passing_threshold
         self.num_samples = num_samples
         self.model = model
         self.min_correct_samples = min_correct_samples
         self.cache_dir = "cache"
-
-    @cached_property
-    def dataset(self) -> dict[str, dict]:
-        if self.dataset_name == DatasetName.HUMAN_EVAL:
-            return get_human_eval_plus(**self.dataset_params)
-        elif self.dataset_name == DatasetName.MBPP:
-            return get_mbpp_plus(**self.dataset_params)
-        else:
-            raise ValueError(f"Unknown dataset name: {self.dataset_name}")
-
-    @cached_property
-    def ground_truth(self):
-        if self.dataset_name == DatasetName.HUMAN_EVAL:
-            hash_func = get_human_eval_plus_hash
-        elif self.dataset_name == DatasetName.MBPP:
-            hash_func = get_mbpp_plus_hash
-        else:
-            raise ValueError(f"Unknown dataset name: {self.dataset_name}")
-
-        return get_groundtruth(self.dataset, hash_func(**self.dataset_params), [])
 
     def _canonical_solution(self):
         logger.info(f"Finding Canonical Solution for {self.task_id}")
@@ -81,9 +59,9 @@ class MaxProbInitializer:
         for sequence in tqdm.tqdm(sequences, desc="Evaluating Sequences"):
             full_solution = self.problem["prompt"] + sequence.text
             eval_results = check_correctness(
-                dataset=self.dataset_name,
+                dataset=self.dataset_manager.dataset,
                 completion_id=time.time_ns(),
-                expected_output=self.ground_truth[self.task_id],
+                expected_output=self.dataset_manager.get_correct(self.task_id),
                 problem=self.problem,
                 solution=full_solution,
                 base_only=False,
@@ -95,6 +73,7 @@ class MaxProbInitializer:
                 logger.warning(
                     "No results were found for a syntactically incorrect solution."
                 )
+                logger.warning(full_solution)
                 continue
 
             passed = [i for i in total if i == 1]
@@ -129,6 +108,9 @@ class MaxProbInitializer:
                 pbar.update(to_gen)
                 remaining -= to_gen
 
+        for sequence in sequences:
+            sequence.full_text = self.problem["prompt"] + sequence.text
+
         return sequences
 
     def canonical_solution(self):
@@ -154,10 +136,10 @@ class MaxProbInitializer:
         processed = []
         for sequence in tqdm.tqdm(sequences, desc="Postprocessing Samples"):
             try:
-                result = sequence.text
+                result = sequence.full_text
                 for transform in transforms:
                     result = transform(result)
-                sequence.text = result
+                sequence.full_text = result
                 processed.append(sequence)
             except Exception:
                 logger.exception("Unable to postprocess sequence")

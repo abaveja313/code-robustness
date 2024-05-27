@@ -9,38 +9,33 @@ from shared.metrics import pass_at_k
 from shared.mutated_stem import MutatedStem
 from loguru import logger
 
+from inference.dataset_loader import DatasetManager
+
 
 class StemEvaluator:
     def __init__(
             self,
             model: VllmDecoder,
+            dataset_manager: DatasetManager,
             problem_id: str,
-            mini=False,
-            noextreme=True,
             num_samples: int = 100,
             k: Tuple[int, ...] = (1, 5, 10)
     ):
         self.model = model
+        self.dataset_manager = dataset_manager
         self.num_samples = num_samples
-        self.dataset_params = dict(mini=mini, noextreme=noextreme)
         self.problem_id = problem_id
-
-        self.human_eval = get_human_eval_plus(**self.dataset_params)
-        self.ground_truth = get_groundtruth(
-            self.human_eval, get_human_eval_plus_hash(**self.dataset_params), []
-        )
         self.k = k
 
     def compute_log_pass_ratio(self, stem: MutatedStem, epsilon=1e-6):
         logger.info("Computing Log Pass Ratio for Stem: {}", stem)
 
-        predictions = self.model.complete_stems(
-            [stem.original_stem, stem.mutated_stem],
-            do_sample=True,
-            num_samples=self.num_samples
-        )
+        original_predictions = self.model.complete_stems(stem.original_stem, do_sample=True,
+                                                         num_samples=self.num_samples)
 
-        original_predictions, mutated_predictions = predictions
+        mutated_predictions = self.model.complete_stems(stem.mutated_stem, do_sample=True,
+                                                        num_samples=self.num_samples)
+
         original_pass_at = self.compute_pass_at(stem.original_stem, original_predictions)
         mutated_pass_at = self.compute_pass_at(stem.mutated_stem, mutated_predictions)
 
@@ -58,10 +53,10 @@ class StemEvaluator:
             logger.debug("Computing pass@k for solution: {}", solution)
             full_solution = f"{stem}\n{solution}"
             eval_results = check_correctness(
-                dataset="humaneval",
+                dataset=self.dataset_manager.dataset_name,
                 completion_id=time.time_ns(),
-                expected_output=self.ground_truth[self.problem_id],
-                problem=self.human_eval[self.problem_id],
+                expected_output=self.dataset_manager.get_correct(self.problem_id),
+                problem=self.dataset_manager.get_problem(self.problem_id),
                 solution=full_solution,
                 base_only=False,
                 gt_time_limit_factor=45.0,

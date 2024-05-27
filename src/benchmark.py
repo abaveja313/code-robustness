@@ -1,14 +1,17 @@
+import os
 from dataclasses import dataclass
+from itertools import chain
 
 import tqdm
-
-from inference.models import make_model, VllmDecoder
-
-from mutations import CRT, RegisteredMixin, RegisteredTransformation
-from canonical import MaxProbInitializer
-from shared.mutated_stem import MutatedStem
-from inference.stem_evaluator import StemEvaluator
 from loguru import logger
+
+from canonical import MaxProbInitializer
+from inference.dataset_loader import DatasetManager
+from inference.models import make_model, VllmDecoder
+from inference.stem_evaluator import StemEvaluator
+from mutations import CRT, RegisteredTransformation
+from mutations.registry import MutationRegistry
+from shared.mutated_stem import MutatedStem
 
 
 @dataclass
@@ -30,7 +33,7 @@ class BenchmarkResult:
 def evaluate_problem(
         model: VllmDecoder,
         problem_id: str,
-        dataset_params: dict[str, bool],
+        dataset_manager: DatasetManager,
         canonical_samples: int,
         canonical_batch_size: int,
         scoring_samples: int,
@@ -44,25 +47,26 @@ def evaluate_problem(
         num_samples=canonical_samples,
         batch_size=canonical_batch_size,
         min_correct_samples=min_correct_samples,
-        **dataset_params
+        dataset_manager=dataset_manager
     )
 
-    canonical_solution = initializer.canonical_solution()
-    mutations: list[RegisteredTransformation] = RegisteredMixin.registry.get(
+    canonical_solution, log_probs = initializer.canonical_solution()
+    mutations: list[RegisteredTransformation] = MutationRegistry.get(
         exclude=exclude_mutation_types
     )
     evaluator = StemEvaluator(
         model=model,
         problem_id=problem_id,
         num_samples=scoring_samples,
-        **dataset_params
+        dataset_manager=dataset_manager
     )
 
     results = []
-    pbar = tqdm.tqdm(mutations)
+    pbar = tqdm.tqdm(list(chain.from_iterable(mutations))
+)
     for mutation in pbar:
         pbar.set_description(f"{mutation.__class__.__name__}")
-        stems: list[MutatedStem] = mutation.get_transformations(
+        stems: list[MutatedStem] = mutation().get_transformations(
             current_text=canonical_solution
         )
         for stem in tqdm.tqdm(stems):
@@ -74,41 +78,42 @@ def evaluate_problem(
                 pass_at_ratio=pass_ratios
             )
             logger.info(result)
-            results.append(result.to_json())
+            results.appsend(result.to_json())
 
     return results
 
 
 def benchmark(
         model_name: str,
-        seed_problems: list[str],
         dataset_name: str,
-        mini: bool = True,
-        noextreme: bool = False,
+        dataset_mini: bool = True,
+        dataset_noextreme: bool = False,
         temperature: float = 0.5,
         canonical_samples: int = 200,
         canonical_batch_size: int = 50,
         scoring_samples: int = 100,
         min_correct_samples: int = 10,
+        seed_problems_k: int = 5,
+        seed_problem_metric: str = 'cyclomatic_complexity',
+        seed_problems: list[str] = None,
         exclude_mutation_types: list[CRT] = None
 ):
-    model = make_model(
-        model_name,
-        backend='vllm',
-        temperature=temperature,
-        dataset=dataset_name
-    )
-    dataset_params = {
-        'mini': mini,
-        'noextreme': noextreme
-    }
+    dataset_manager = DatasetManager(dataset=dataset_name, mini=dataset_mini, noextreme=dataset_noextreme)
+    model = make_model(model_name, backend='vllm', temperature=temperature, dataset=dataset_name)
+
+    if seed_problems is None:
+        logger.info("Calculating Seed Problems...")
+        seed_problems = dataset_manager.find_seeds(
+            k=seed_problems_k,
+            metric=seed_problem_metric
+        )
 
     for seed_problem in seed_problems:
-        logger.info("Evaluating problem: %s", seed_problem)
+        logger.info(f"Evaluating problem: {seed_problem}")
         evaluate_problem(
             model=model,
             problem_id=seed_problem,
-            dataset_params=dataset_params,
+            dataset_manager=dataset_manager,
             canonical_samples=canonical_samples,
             canonical_batch_size=canonical_batch_size,
             scoring_samples=scoring_samples,
@@ -118,10 +123,13 @@ def benchmark(
 
 
 if __name__ == "__main__":
+    os.environ['TOKENIZERS_PARALLELISM'] = 'true'
     benchmark(
+        dataset_name='mbpp',
         model_name='deepseek-ai/deepseek-coder-1.3b-instruct',
-        seed_problems=['Mbpp/771', 'Mbpp/100', 'Mbpp/129', 'Mbpp/245', 'Mbpp/306', 'Mbpp/239', 'Mbpp/123', 'Mbpp/20',
-                       'Mbpp/721', 'Mbpp/71'],
-        mini=False,
-        noextreme=True
+        temperature=0.25,
+        seed_problems_k=10,
+        seed_problem_metric='cyclomatic_complexity',
+        dataset_mini=False,
+        dataset_noextreme=True
     )

@@ -26,7 +26,7 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
             new_stem, old_stem = parse_stem(original, m)
             stem = MutatedStem(
                 original_stem=old_stem,
-                mutated_stem=m
+                mutated_stem=new_stem
             )
             results.append(stem)
         return results
