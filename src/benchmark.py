@@ -1,5 +1,4 @@
 import os
-from dataclasses import dataclass
 from itertools import chain
 
 import tqdm
@@ -11,8 +10,8 @@ from inference.models import make_model, VllmDecoder
 from inference.stem_evaluator import StemEvaluator
 from mutations import CRT, RegisteredTransformation
 from mutations.registry import MutationRegistry
-from shared.structs import MutatedStem, BenchmarkResult
 from shared.gcs_storage_manager import GCSResultStorageManager
+from shared.structs import MutatedStem, BenchmarkResult
 
 
 def evaluate_problem(
@@ -50,7 +49,7 @@ def evaluate_problem(
     pbar = tqdm.tqdm(list(chain.from_iterable(mutations)))
 
     for mutation in pbar:
-        pbar.set_description(f"{mutation.__class__.__name__}")
+        pbar.set_description(f"{mutation.__name__}")
         stems: list[MutatedStem] = mutation().get_transformations(
             current_text=canonical_solution
         )
@@ -60,7 +59,7 @@ def evaluate_problem(
 
         for stem in tqdm.tqdm(stems):
             mutation_result = BenchmarkResult(
-                problem_id=problem_id, mutation=mutation.__class__.__name__
+                problem_id=problem_id, mutation=mutation.__name__
             )
             evaluator.compute_log_pass_ratio(stem, mutation_result)
             logger.info("Result: " + str(mutation_result))
@@ -75,7 +74,7 @@ def benchmark(
     temperature: float = 0.5,
     canonical_samples: int = 200,
     canonical_batch_size: int = 50,
-    scoring_samples: int = 100,
+    scoring_samples: int = 200,
     min_correct_samples: int = 10,
     seed_problems_k: int = 5,
     seed_problem_metric: str = "cyclomatic_complexity",

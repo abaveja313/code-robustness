@@ -47,7 +47,7 @@ class RegisteredMeta(ABCMeta):
     def __new__(cls, name, bases, attrs, **kwargs):
         new_cls = super().__new__(cls, name, bases, attrs)
         if kwargs.get("disabled", False):
-            logger.warning(f"{cls.__class__.__name__} mutation is disabled.")
+            logger.warning(f"{cls.__name__} mutation is disabled.")
         else:
             if not kwargs.get("abstract", False):
                 category = kwargs.get("category")

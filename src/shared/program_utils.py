@@ -72,33 +72,29 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
     last_lineno = -1
     last_col = 0
     first_token = True
-
     for tok in tokenize.generate_tokens(io_obj.readline):
         token_type, token_string, start, end, line = tok
         start_line, start_col = start
         end_line, end_col = end
-
         if start_line > last_lineno:
             out += "\n" * (start_line - last_lineno)
             last_col = 0
         if start_col > last_col:
             out += " " * (start_col - last_col)
-
         if token_type == tokenize.COMMENT:
-            pass
+            if token_string.startswith("# this is a "):
+                out += token_string
         elif (
-            token_type == tokenize.STRING
-            and remove_docstrings
-            and prev_toktype == tokenize.INDENT
+                token_type == tokenize.STRING
+                and remove_docstrings
+                and prev_toktype == tokenize.INDENT
         ):
             pass
         else:
             out += token_string
-
         prev_toktype = token_type
         last_col = end_col
         last_lineno = end_line
-
     cleaned_lines = [line.rstrip() for line in out.splitlines() if line.strip()]
     if cleaned_lines:
         base_indentation = len(cleaned_lines[0]) - len(cleaned_lines[0].lstrip())
@@ -114,7 +110,7 @@ def extract_function_parts(code: str, function_name: str = None):
     func_node = None
     for node in parsed_code.body:
         if isinstance(node, ast.FunctionDef) and (
-            function_name is None or node.name == function_name
+                function_name is None or node.name == function_name
         ):
             func_node = node
             break
@@ -135,7 +131,7 @@ def extract_function_parts(code: str, function_name: str = None):
         indented_docstring = ""
 
     func_body_with_comments = "\n".join(
-        func_code_lines[func_start_line + 1 : func_end_line]
+        func_code_lines[func_start_line + 1: func_end_line]
     )
     func_body = remove_comments_and_docstrings(
         func_body_with_comments, remove_docstrings=True
@@ -146,7 +142,7 @@ def extract_function_parts(code: str, function_name: str = None):
 
     function_parts = {
         "declaration": func_declaration_line
-        + ("\n" + indented_docstring if indented_docstring else ""),
+                       + ("\n" + indented_docstring if indented_docstring else ""),
         "body": f"{IDENT}" + func_body.replace("\n\n", "\n"),  # Add initial indentation
     }
     return function_parts
@@ -168,9 +164,9 @@ def parse_stem(old_code: str, new_code: str, function_name: str = None):
         )
 
     if (
-        i == len(old_lines) - 1
-        and i == len(new_lines) - 1
-        and old_lines[i] == new_lines[i]
+            i == len(old_lines) - 1
+            and i == len(new_lines) - 1
+            and old_lines[i] == new_lines[i]
     ):
         return (
             f"{new_parts['declaration']}\n{new_parts['body']}",
@@ -201,12 +197,13 @@ postprocessors = (
 )
 
 
-def postprocess(programs: list[str]) -> list[str]:
+def postprocess(programs: list[str], result) -> list[str]:
     for postprocessor in postprocessors:
         for idx, program in enumerate(programs):
             try:
                 programs[idx] = postprocessor(program)
             except Exception:
+                result.bad_syntax_examples.append(programs[idx])
                 logger.exception(
                     f"Encountered error while postprocessing:\n{programs[idx]}!"
                 )
