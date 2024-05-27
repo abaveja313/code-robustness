@@ -14,13 +14,7 @@ class DictToArrayVisitor(OneByOneVisitor):
         return False
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
-        return ast.Assign(
-            targets=node.targets,
-            value=ast.List(
-                elts=[],
-                ctx=ast.Load()
-            )
-        )
+        return ast.Assign(targets=node.targets, value=ast.List(elts=[], ctx=ast.Load()))
 
 
 class DictToArrayTransformer(OneByOneTransformer, category=CRT.dicts):

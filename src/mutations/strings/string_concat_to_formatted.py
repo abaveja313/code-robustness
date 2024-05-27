@@ -4,7 +4,6 @@ from typing import Type
 from mutations import OneByOneVisitor, OneByOneTransformer, CRT
 
 
-
 class StringConcatToFStringVisitor(OneByOneVisitor):
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         components = self.collect_components(node)
@@ -26,14 +25,20 @@ class StringConcatToFStringVisitor(OneByOneVisitor):
             if isinstance(component, ast.Constant) and isinstance(component.value, str):
                 formatted_values.append(ast.Constant(value=component.value))
             else:
-                formatted_values.append(ast.FormattedValue(value=component, conversion=-1, format_spec=None))
+                formatted_values.append(
+                    ast.FormattedValue(value=component, conversion=-1, format_spec=None)
+                )
 
         return ast.JoinedStr(values=formatted_values)
 
     def is_transformable(self, node):
-        return (isinstance(node, ast.BinOp) and
-                ((isinstance(node.left, ast.Constant) and isinstance(node.left.value, str)) or
-                 (isinstance(node.right, ast.Constant) and isinstance(node.right.value, str))))
+        return isinstance(node, ast.BinOp) and (
+            (isinstance(node.left, ast.Constant) and isinstance(node.left.value, str))
+            or (
+                isinstance(node.right, ast.Constant)
+                and isinstance(node.right.value, str)
+            )
+        )
 
 
 class StringConcatToFStringTransformer(OneByOneTransformer, category=CRT.strings):

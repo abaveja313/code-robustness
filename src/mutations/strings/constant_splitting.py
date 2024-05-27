@@ -19,14 +19,16 @@ class ConstantSplittingVisitor(OneByOneVisitor):
 
         # Create a new AST node for the concatenated result
         concatenated_node = ast.BinOp(
-            left=first_part_node,
-            op=ast.Add(),
-            right=rest_part_node
+            left=first_part_node, op=ast.Add(), right=rest_part_node
         )
         return concatenated_node
 
     def is_transformable(self, node):
-        return isinstance(node, ast.Constant) and isinstance(node.value, str) and len(node.value) > 3
+        return (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and len(node.value) > 3
+        )
 
 
 class ConstantSplittingTransformer(OneByOneTransformer, category=CRT.strings):

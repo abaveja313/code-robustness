@@ -9,7 +9,11 @@ from mutations import RegisteredTransformation, CRT
 class ParensProcessor:
     def __init__(self, source_code, node_types=None):
         self.source_code = source_code
-        self.node_types = node_types if node_types else [ast.BinOp, ast.UnaryOp, ast.BoolOp, ast.Compare, ast.UnaryOp]
+        self.node_types = (
+            node_types
+            if node_types
+            else [ast.BinOp, ast.UnaryOp, ast.BoolOp, ast.Compare, ast.UnaryOp]
+        )
         self.atok = ASTTokens(source_code, parse=True)
         self.tree = self.atok.tree
 

@@ -10,13 +10,7 @@ class DictInitializerUnpackVisitor(OneByOneVisitor):
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         empty_dict = ast.Dict(keys=[], values=[])
 
-        merged_dict = ast.Dict(
-            keys=[None, None],
-            values=[
-                node.value,
-                empty_dict
-            ]
-        )
+        merged_dict = ast.Dict(keys=[None, None], values=[node.value, empty_dict])
 
         new_node = ast.Assign(targets=node.targets, value=merged_dict)
         return new_node

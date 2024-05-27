@@ -9,7 +9,9 @@ from shared.ast_utils import get_constant_num
 
 
 class ReverseRangeVisitor(OneByOneVisitor):
-    def extract_range_params(self, node) -> Tuple[ast.Constant, ast.Constant, ast.Constant]:
+    def extract_range_params(
+        self, node
+    ) -> Tuple[ast.Constant, ast.Constant, ast.Constant]:
         args = node.args
         num_args = len(args)
 
@@ -48,11 +50,13 @@ class ReverseRangeVisitor(OneByOneVisitor):
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         # We need to apply get_constant_num to map UnaryOp(USub) to a negative constant
-        start, stop, step = tuple(map(get_constant_num, self.extract_range_params(node)))
+        start, stop, step = tuple(
+            map(get_constant_num, self.extract_range_params(node))
+        )
         args = self.reverse_range_params(start, stop, step)
 
         new_call = ast.Call(
-            func=ast.Name(id='range', ctx=ast.Load()),
+            func=ast.Name(id="range", ctx=ast.Load()),
             args=args,
             keywords=[],
         )
@@ -61,14 +65,18 @@ class ReverseRangeVisitor(OneByOneVisitor):
     def has_constant_step(self, node):
         # If the step is dynamic, we have no way of knowing whether it is positive or negative
         # and thus we cannot reverse the range
-        return 1 <= len(node.args) < 3 or (len(node.args) == 3 and isinstance(get_constant_num(node.args[2]),
-                                                                             ast.Constant))
+        return 1 <= len(node.args) < 3 or (
+            len(node.args) == 3
+            and isinstance(get_constant_num(node.args[2]), ast.Constant)
+        )
 
     def is_transformable(self, node):
-        return (isinstance(node, ast.Call) and
-                isinstance(node.func, ast.Name) and
-                node.func.id == 'range' and
-                self.has_constant_step(node))
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "range"
+            and self.has_constant_step(node)
+        )
 
 
 class ReverseIterationTransformer(OneByOneTransformer, category=CRT.arrays):

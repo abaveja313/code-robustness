@@ -3,18 +3,15 @@ from typing import Type
 
 from mutations import (
     OneByOneVisitor,
-    OneByOneTransformer, CRT,
+    OneByOneTransformer,
+    CRT,
 )
 
 
 class WhileToIfVisitor(OneByOneVisitor):
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
-        return ast.If(
-            body=[ast.Pass()],
-            test=node.test,
-            orelse=[]
-        )
+        return ast.If(body=[ast.Pass()], test=node.test, orelse=[])
 
     def is_transformable(self, node):
         return isinstance(node, ast.While)

@@ -15,8 +15,11 @@ class StringToCharArrayVisitor(OneByOneVisitor):
         return node
 
     def is_transformable(self, node):
-        return (isinstance(node, ast.Assign) and
-                isinstance(node.value, ast.Constant) and isinstance(node.value.value, str))
+        return (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        )
 
 
 class StringToCharArrayTransformer(OneByOneTransformer, category=CRT.arrays):

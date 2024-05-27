@@ -20,7 +20,9 @@ def get_function_declaration_line(source_code: str, function_name: str):
                     params.append(arg.arg)
 
                 if node.args.defaults:
-                    defaults = [None] * (len(node.args.args) - len(node.args.defaults)) + node.args.defaults
+                    defaults = [None] * (
+                        len(node.args.args) - len(node.args.defaults)
+                    ) + node.args.defaults
                     for i, default in enumerate(defaults):
                         if default is not None:
                             params[i] += f"={ast.unparse(default).strip()}"
@@ -28,9 +30,13 @@ def get_function_declaration_line(source_code: str, function_name: str):
                 if node.args.vararg:
                     params.append(f"*{node.args.vararg.arg}")
 
-                for kwonlyarg, kw_default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+                for kwonlyarg, kw_default in zip(
+                    node.args.kwonlyargs, node.args.kw_defaults
+                ):
                     if kw_default is not None:
-                        params.append(f"{kwonlyarg.arg}={ast.unparse(kw_default).strip()}")
+                        params.append(
+                            f"{kwonlyarg.arg}={ast.unparse(kw_default).strip()}"
+                        )
                     else:
                         params.append(f"{kwonlyarg.arg}")
 
@@ -55,7 +61,7 @@ class ParentTransformer(ast.NodeTransformer):
 
 
 class StatementGroup(ast.AST):
-    _fields = ['body']
+    _fields = ["body"]
 
     def __init__(self, body=None):
         self.body = body or []
@@ -90,7 +96,11 @@ def is_unary_assign(node):
 
 
 def get_constant_num(node):
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub) and isinstance(node.operand, ast.Constant):
+    if (
+        isinstance(node, ast.UnaryOp)
+        and isinstance(node.op, ast.USub)
+        and isinstance(node.operand, ast.Constant)
+    ):
         return ast.Constant(value=-1 * node.operand.value)
     return node
 
@@ -102,7 +112,7 @@ class NodeReplacer(ast.NodeTransformer):
 
     @staticmethod
     def get_nid(node):
-        node_uuid = getattr(node, 'uuid')
+        node_uuid = getattr(node, "uuid")
         if not node_uuid:
             logger.warning(f"Found node {node} without `uuid` attribute")
         return node_uuid

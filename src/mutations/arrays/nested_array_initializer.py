@@ -14,11 +14,7 @@ class NestedArrayInitializerVisitor(OneByOneVisitor):
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         return ast.Assign(
-            targets=node.targets,
-            value=ast.List(
-                elts=[node.value],
-                ctx=ast.Load()
-            )
+            targets=node.targets, value=ast.List(elts=[node.value], ctx=ast.Load())
         )
 
 

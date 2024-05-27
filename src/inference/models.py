@@ -93,13 +93,13 @@ def make_stem_completion_prompt(prompt: str, tokenizer: AutoTokenizer) -> str:
 
 class DecoderBase(ABC):
     def __init__(
-            self,
-            name: str,
-            batch_size: int = 1,
-            temperature: float = 0.8,
-            max_new_tokens: int = 2048,
-            dtype: str = "bfloat16",  # default
-            trust_remote_code: bool = False,
+        self,
+        name: str,
+        batch_size: int = 1,
+        temperature: float = 0.8,
+        max_new_tokens: int = 2048,
+        dtype: str = "bfloat16",  # default
+        trust_remote_code: bool = False,
     ) -> None:
         print("Initializing a decoder model: {} ...".format(name))
         self.name = name
@@ -113,7 +113,7 @@ class DecoderBase(ABC):
 
     @abstractmethod
     def codegen(
-            self, prompt: str, do_sample: bool = True, num_samples: int = 200
+        self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         pass
 
@@ -146,16 +146,18 @@ class VllmDecoder(DecoderBase):
     def is_direct_completion(self) -> bool:
         return self.tokenizer.chat_template is None
 
-    def complete_stems(self, prompt: str, num_samples: int = 1, do_sample: bool = True) -> List[str]:
+    def complete_stems(
+        self, prompt: str, num_samples: int = 1, do_sample: bool = True
+    ) -> List[str]:
 
         vllm_outputs = self.llm.generate(
-            prompts,
+            prompt,
             SamplingParams(
                 temperature=self.temperature,
                 max_tokens=self.max_new_tokens,
                 top_p=0.95 if do_sample else 1.0,
                 stop=self.eos,
-                n=num_samples
+                n=num_samples,
             ),
             use_tqdm=False,
         )
@@ -164,7 +166,7 @@ class VllmDecoder(DecoderBase):
         return gen_strs
 
     def codegen(
-            self, prompt: str, do_sample: bool = True, num_samples: int = 200
+        self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[RequestOutput]:
         if do_sample:
             assert self.temperature > 0, "Temperature must be greater than 0!"
@@ -191,12 +193,14 @@ class GeneralVllmDecoder(VllmDecoder):
         print(f"EOS strings: {self.eos}")
 
     def codegen(
-            self, prompt: str, do_sample: bool = True, num_samples: int = 200
+        self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[RequestOutput]:
         prompt = make_codegen_prompt(prompt, self.tokenizer)
         return VllmDecoder.codegen(self, prompt, do_sample, num_samples)
 
-    def complete_stems(self, prompt: str, num_samples: int = 1, do_sample: bool = True) -> List[str]:
+    def complete_stems(
+        self, prompt: str, num_samples: int = 1, do_sample: bool = True
+    ) -> List[str]:
         vllm_outputs = self.llm.generate(
             make_stem_completion_prompt(prompt, self.tokenizer),
             SamplingParams(
@@ -204,12 +208,12 @@ class GeneralVllmDecoder(VllmDecoder):
                 max_tokens=self.max_new_tokens,
                 top_p=0.95 if do_sample else 1.0,
                 stop=self.eos,
-                n=num_samples
+                n=num_samples,
             ),
             use_tqdm=False,
         )
 
-        gen_strs = [x.outputs[0].text.replace("\t", "    ") for x in vllm_outputs]
+        gen_strs = [prompt + "\n" + x.text for x in vllm_outputs[0].outputs]
         return gen_strs
 
 
@@ -239,7 +243,7 @@ class HfTorchDecoder(DecoderBase):
 
     @torch.inference_mode()
     def codegen(
-            self, prompt: str, do_sample: bool = True, num_samples: int = 200
+        self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         if self.temperature == 0:
             assert not do_sample
@@ -274,7 +278,7 @@ class HfTorchDecoder(DecoderBase):
         )
 
         gen_strs = self.tokenizer.batch_decode(
-            outputs[:, input_tokens.size(-1):],
+            outputs[:, input_tokens.size(-1) :],
             skip_special_tokens=self.skip_special_tokens,
         )
         outputs = []
@@ -296,7 +300,7 @@ class GenenralHfTorchDecoder(HfTorchDecoder):
         self.tokenizer = AutoTokenizer.from_pretrained(self.name)
 
     def codegen(
-            self, prompt: str, do_sample: bool = True, num_samples: int = 200
+        self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         prompt = make_codegen_prompt(prompt, self.tokenizer)
         return HfTorchDecoder.codegen(self, prompt, do_sample, num_samples)
@@ -306,10 +310,11 @@ class OpenAIChatDecoder(DecoderBase):
     def __init__(self, name: str, base_url=None, **kwargs) -> None:
         super().__init__(name, **kwargs)
         import openai
+
         self.client = openai.OpenAI(base_url=base_url)
 
     def codegen(
-            self, prompt: str, do_sample: bool = True, num_samples: int = 200
+        self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         if do_sample:
             assert self.temperature > 0, "Temperature must be positive for sampling"
@@ -360,12 +365,14 @@ class MistralChatDecoder(DecoderBase):
     def __init__(self, name: str, **kwargs) -> None:
         super().__init__(name, **kwargs)
         from mistralai.client import MistralClient
+
         self.client = MistralClient(api_key=os.getenv("MISTRAL_API_KEY"))
 
     def codegen(
-            self, prompt: str, do_sample: bool = True, num_samples: int = 200
+        self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         from mistralai.client import ChatMessage
+
         kwargs = {}
         if do_sample:
             assert self.temperature > 0, "Temperature must be positive for sampling"
@@ -384,7 +391,7 @@ class MistralChatDecoder(DecoderBase):
                     ChatMessage(
                         role="user",
                         content="Please generate code to solve the following problem in a Python markdown block:"
-                                + f"\n```python\n{prompt.strip()}\n```",
+                        + f"\n```python\n{prompt.strip()}\n```",
                     )
                 ],
                 max_tokens=self.max_new_tokens,
@@ -403,6 +410,7 @@ class AnthropicDecoder(DecoderBase, ABC):
     def __init__(self, name: str, **kwargs) -> None:
         super().__init__(name, **kwargs)
         import anthropic
+
         self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_KEY"))
 
     def is_direct_completion(self) -> bool:
@@ -411,7 +419,7 @@ class AnthropicDecoder(DecoderBase, ABC):
 
 class AnthropicMessageDecoder(AnthropicDecoder):
     def codegen(
-            self, prompt: str, do_sample: bool = True, num_samples: int = 200
+        self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         if do_sample:
             assert self.temperature > 0, "Temperature must be positive for sampling"
@@ -429,7 +437,7 @@ class AnthropicMessageDecoder(AnthropicDecoder):
                     {
                         "role": "user",
                         "content": "Please generate code to complete the following problem wrapped in a Python markdown block:"
-                                   + f"\n```python\n{prompt.strip()}\n```\n",
+                        + f"\n```python\n{prompt.strip()}\n```\n",
                     }
                 ],
                 max_tokens=self.max_new_tokens,
@@ -442,13 +450,13 @@ class AnthropicMessageDecoder(AnthropicDecoder):
 
 
 def make_model(
-        model: str,
-        backend: str,
-        dataset: str,
-        batch_size: int = 1,
-        temperature: float = 0.0,
-        tp=1,
-        base_url=None,
+    model: str,
+    backend: str,
+    dataset: str,
+    batch_size: int = 1,
+    temperature: float = 0.0,
+    tp=1,
+    base_url=None,
 ):
     if backend == "vllm":
         return GeneralVllmDecoder(
@@ -457,7 +465,7 @@ def make_model(
             temperature=temperature,
             dataset=dataset,
             tp=tp,
-            dtype="half"
+            dtype="half",
         )
     elif backend == "hf":
         return GenenralHfTorchDecoder(

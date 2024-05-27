@@ -28,26 +28,36 @@ class MutationRegistry:
     @classmethod
     def get(cls, category=None, exclude=None):
         if category and exclude:
-            raise ValueError('Cannot provide both category and exclude')
+            raise ValueError("Cannot provide both category and exclude")
         if not (category or exclude):
             return list(cls._registry.values())
         if category:
             return cls._registry.get(category, [])
         else:
             valid = set(cls._registry.keys()) - set(exclude)
-            return [subclass for key, values in cls._registry.items() if key in valid for subclass in values]
+            return [
+                subclass
+                for key, values in cls._registry.items()
+                if key in valid
+                for subclass in values
+            ]
 
 
 class RegisteredMeta(ABCMeta):
     def __new__(cls, name, bases, attrs, **kwargs):
         new_cls = super().__new__(cls, name, bases, attrs)
-        if not kwargs.get('abstract', False):
-            category = kwargs.get('category')
-            if category is None:
-                raise ValueError(f"Category must be provided for registered class {name}")
+        if kwargs.get("disabled", False):
+            logger.warning(f"{cls.__class__.__name__} mutation is disabled.")
+        else:
+            if not kwargs.get("abstract", False):
+                category = kwargs.get("category")
+                if category is None:
+                    raise ValueError(
+                        f"Category must be provided for registered class {name}"
+                    )
 
-            MutationRegistry.register(new_cls, category)
-        return new_cls
+                MutationRegistry.register(new_cls, category)
+            return new_cls
 
 
 class RegisteredMixin(metaclass=RegisteredMeta, abstract=True):

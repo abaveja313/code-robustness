@@ -3,7 +3,8 @@ from typing import Type
 
 from mutations import (
     OneByOneTransformer,
-    OneByOneVisitor, CRT,
+    OneByOneVisitor,
+    CRT,
 )
 from shared.ast_utils import is_unary_assign
 
@@ -27,24 +28,54 @@ class BooleanDemorgansVisitor(OneByOneVisitor):
             if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
                 if isinstance(node.operand, ast.BoolOp):
                     if isinstance(node.operand.op, ast.And):
-                        return ast.BoolOp(op=ast.Or(),
-                                          values=[ast.UnaryOp(op=ast.Not(), operand=apply_demorgans_expr(value)) for
-                                                  value in node.operand.values])
+                        return ast.BoolOp(
+                            op=ast.Or(),
+                            values=[
+                                ast.UnaryOp(
+                                    op=ast.Not(), operand=apply_demorgans_expr(value)
+                                )
+                                for value in node.operand.values
+                            ],
+                        )
                     elif isinstance(node.operand.op, ast.Or):
-                        return ast.BoolOp(op=ast.And(),
-                                          values=[ast.UnaryOp(op=ast.Not(), operand=apply_demorgans_expr(value)) for
-                                                  value in node.operand.values])
+                        return ast.BoolOp(
+                            op=ast.And(),
+                            values=[
+                                ast.UnaryOp(
+                                    op=ast.Not(), operand=apply_demorgans_expr(value)
+                                )
+                                for value in node.operand.values
+                            ],
+                        )
             elif isinstance(node, ast.BoolOp):
                 if isinstance(node.op, ast.And) and all(
-                        isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.Not) for value in node.values):
-                    return ast.UnaryOp(op=ast.Not(), operand=ast.BoolOp(op=ast.Or(),
-                                                                        values=[apply_demorgans_expr(value.operand) for
-                                                                                value in node.values]))
+                    isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.Not)
+                    for value in node.values
+                ):
+                    return ast.UnaryOp(
+                        op=ast.Not(),
+                        operand=ast.BoolOp(
+                            op=ast.Or(),
+                            values=[
+                                apply_demorgans_expr(value.operand)
+                                for value in node.values
+                            ],
+                        ),
+                    )
                 elif isinstance(node.op, ast.Or) and all(
-                        isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.Not) for value in node.values):
-                    return ast.UnaryOp(op=ast.Not(), operand=ast.BoolOp(op=ast.And(),
-                                                                        values=[apply_demorgans_expr(value.operand) for
-                                                                                value in node.values]))
+                    isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.Not)
+                    for value in node.values
+                ):
+                    return ast.UnaryOp(
+                        op=ast.Not(),
+                        operand=ast.BoolOp(
+                            op=ast.And(),
+                            values=[
+                                apply_demorgans_expr(value.operand)
+                                for value in node.values
+                            ],
+                        ),
+                    )
             return node
 
         if isinstance(node, ast.Expr):
@@ -63,10 +94,16 @@ class BooleanDemorgansVisitor(OneByOneVisitor):
     def is_demorgans_simplifiable(node):
         def is_demorgans_simplifiable_expr(node):
             if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
-                return isinstance(node.operand, ast.BoolOp) and isinstance(node.operand.op, (ast.And, ast.Or))
+                return isinstance(node.operand, ast.BoolOp) and isinstance(
+                    node.operand.op, (ast.And, ast.Or)
+                )
             elif isinstance(node, ast.BoolOp):
-                return (isinstance(node.op, ast.And) or isinstance(node.op, ast.Or)) and all(
-                    isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.Not) for value in node.values)
+                return (
+                    isinstance(node.op, ast.And) or isinstance(node.op, ast.Or)
+                ) and all(
+                    isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.Not)
+                    for value in node.values
+                )
             else:
                 return False
 
@@ -87,7 +124,9 @@ class BooleanDemorgansVisitor(OneByOneVisitor):
         return self.is_demorgans_simplifiable(node)
 
 
-class BooleanDemorgansTransformer(OneByOneTransformer, category=CRT.booleans):
+class BooleanDemorgansTransformer(
+    OneByOneTransformer, category=CRT.booleans, disabled=True
+):
     @property
     def visitor(self) -> Type[OneByOneVisitor]:
         return BooleanDemorgansVisitor

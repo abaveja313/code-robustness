@@ -14,7 +14,7 @@ class IntegerReplacementVisitor(OneByOneVisitor):
         return ast.BinOp(
             left=ast.Constant(value=new_left),
             op=ast.Add(),
-            right=ast.Constant(value=-self.magic_constant)
+            right=ast.Constant(value=-self.magic_constant),
         )
 
     def is_transformable(self, node):

@@ -3,7 +3,8 @@ from typing import Type
 
 from mutations import (
     OneByOneTransformer,
-    OneByOneVisitor, CRT,
+    OneByOneVisitor,
+    CRT,
 )
 
 

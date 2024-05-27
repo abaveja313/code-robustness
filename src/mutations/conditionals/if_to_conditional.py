@@ -3,9 +3,11 @@ from typing import Type
 
 from mutations import (
     OneByOneTransformer,
-    OneByOneVisitor, CRT,
+    OneByOneVisitor,
+    CRT,
 )
 from shared.ast_utils import has_elif_block
+
 
 class IfToConditionalVisitor(OneByOneVisitor):
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
@@ -16,16 +18,9 @@ class IfToConditionalVisitor(OneByOneVisitor):
         if_value = if_body.value
         else_value = else_body.value
 
-        ifexpr = ast.IfExp(
-            test=node.test,
-            body=if_value,
-            orelse=else_value
-        )
+        ifexpr = ast.IfExp(test=node.test, body=if_value, orelse=else_value)
 
-        assign = ast.Assign(
-            targets=[target],
-            value=ifexpr
-        )
+        assign = ast.Assign(targets=[target], value=ifexpr)
 
         return assign
 
@@ -38,12 +33,16 @@ class IfToConditionalVisitor(OneByOneVisitor):
                 if_body = node.body[0]
                 else_body = node.orelse[0]
 
-                if isinstance(if_body, ast.Assign) and isinstance(else_body, ast.Assign):
+                if isinstance(if_body, ast.Assign) and isinstance(
+                    else_body, ast.Assign
+                ):
                     if len(if_body.targets) == 1 and len(else_body.targets) == 1:
                         if_target = if_body.targets[0]
                         else_target = else_body.targets[0]
 
-                        if isinstance(if_target, ast.Name) and isinstance(else_target, ast.Name):
+                        if isinstance(if_target, ast.Name) and isinstance(
+                            else_target, ast.Name
+                        ):
                             return if_target.id == else_target.id
 
         return False

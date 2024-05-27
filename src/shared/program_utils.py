@@ -5,8 +5,12 @@ import textwrap
 import tokenize
 from typing import List
 
+from loguru import logger
 
-def remove_pass(*, inputs: List[str]) -> List[str]:
+IDENT = " " * 4
+
+
+def remove_pass(inputs: List[str]) -> List[str]:
     results = []
     for prompt in inputs:
         prompt_lines = prompt.strip().splitlines()
@@ -20,6 +24,7 @@ def remove_pass(*, inputs: List[str]) -> List[str]:
 
 def normalize_indentation(code: str) -> str:
     code = textwrap.dedent(code)
+    code = code.replace("\t", IDENT)
     # Split the input code into lines and strip trailing whitespace
     lines = [line.rstrip() for line in code.splitlines()]
 
@@ -82,9 +87,9 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
         if token_type == tokenize.COMMENT:
             pass
         elif (
-                token_type == tokenize.STRING
-                and remove_docstrings
-                and prev_toktype == tokenize.INDENT
+            token_type == tokenize.STRING
+            and remove_docstrings
+            and prev_toktype == tokenize.INDENT
         ):
             pass
         else:
@@ -109,7 +114,7 @@ def extract_function_parts(code: str, function_name: str = None):
     func_node = None
     for node in parsed_code.body:
         if isinstance(node, ast.FunctionDef) and (
-                function_name is None or node.name == function_name
+            function_name is None or node.name == function_name
         ):
             func_node = node
             break
@@ -124,70 +129,25 @@ def extract_function_parts(code: str, function_name: str = None):
     func_declaration_line = func_code_lines[func_start_line].strip()
     docstring = ast.get_docstring(func_node)
     if docstring:
-        docstring_lines = docstring.splitlines()
-        indented_docstring = "\n".join(["    " + line for line in docstring_lines])
-        indented_docstring = f'    """{indented_docstring}\n    """'  # Properly format and indent multiline docstrings
+        quoted_docstring = f'"""\n{docstring}\n"""'
+        indented_docstring = textwrap.indent(quoted_docstring, IDENT)
     else:
         indented_docstring = ""
 
     func_body_with_comments = "\n".join(
-        func_code_lines[func_start_line + 1: func_end_line]
+        func_code_lines[func_start_line + 1 : func_end_line]
     )
     func_body = remove_comments_and_docstrings(
         func_body_with_comments, remove_docstrings=True
     )
-    func_body = "\n    ".join(
+    func_body = f"\n{IDENT}".join(
         func_body.splitlines()
     )  # Correctly indent all lines of the body
 
     function_parts = {
         "declaration": func_declaration_line
-                       + ("\n" + indented_docstring if indented_docstring else ""),
-        "body": "    " + func_body.replace("\n\n", "\n"),  # Add initial indentation
-    }
-    return function_parts
-
-
-def extract_function_parts(code: str, function_name: str = None):
-    parsed_code = ast.parse(code)
-    func_node = None
-    for node in parsed_code.body:
-        if isinstance(node, ast.FunctionDef) and (
-                function_name is None or node.name == function_name
-        ):
-            func_node = node
-            break
-
-    if func_node is None:
-        raise ValueError(f"Function '{function_name}' not found in the provided code.")
-
-    func_start_line = func_node.lineno - 1
-    func_end_line = func_node.end_lineno
-    func_code_lines = code.splitlines()
-
-    func_declaration_line = func_code_lines[func_start_line].strip()
-    docstring = ast.get_docstring(func_node)
-    if docstring:
-        docstring_lines = docstring.splitlines()
-        indented_docstring = "\n".join(["    " + line for line in docstring_lines])
-        indented_docstring = f'    """{indented_docstring}\n    """'  # Properly format and indent multiline docstrings
-    else:
-        indented_docstring = ""
-
-    func_body_with_comments = "\n".join(
-        func_code_lines[func_start_line + 1: func_end_line]
-    )
-    func_body = remove_comments_and_docstrings(
-        func_body_with_comments, remove_docstrings=True
-    )
-    func_body = "\n    ".join(
-        func_body.splitlines()
-    )  # Correctly indent all lines of the body
-
-    function_parts = {
-        "declaration": func_declaration_line
-                       + ("\n" + indented_docstring if indented_docstring else ""),
-        "body": "    " + func_body.replace("\n\n", "\n"),  # Add initial indentation
+        + ("\n" + indented_docstring if indented_docstring else ""),
+        "body": f"{IDENT}" + func_body.replace("\n\n", "\n"),  # Add initial indentation
     }
     return function_parts
 
@@ -202,19 +162,28 @@ def parse_stem(old_code: str, new_code: str, function_name: str = None):
         if old_line != new_line:
             break
     else:
-        return f"{new_parts['declaration']}\n{new_parts['body']}", f"{old_parts['declaration']}\n{old_parts['body']}"
+        return (
+            f"{new_parts['declaration']}\n{new_parts['body']}",
+            f"{old_parts['declaration']}\n{old_parts['body']}",
+        )
 
     if (
-            i == len(old_lines) - 1
-            and i == len(new_lines) - 1
-            and old_lines[i] == new_lines[i]
+        i == len(old_lines) - 1
+        and i == len(new_lines) - 1
+        and old_lines[i] == new_lines[i]
     ):
-        return f"{new_parts['declaration']}\n{new_parts['body']}", f"{old_parts['declaration']}\n{old_parts['body']}"
+        return (
+            f"{new_parts['declaration']}\n{new_parts['body']}",
+            f"{old_parts['declaration']}\n{old_parts['body']}",
+        )
 
     new_func_split = "\n".join(new_lines[: i + 1])
     old_func_split = "\n".join(old_lines[: i + 1])
 
-    return f"{new_parts['declaration']}\n{new_func_split}", f"{old_parts['declaration']}\n{old_func_split}"
+    return (
+        f"{new_parts['declaration']}\n{new_func_split}",
+        f"{old_parts['declaration']}\n{old_func_split}",
+    )
 
 
 def one_by_one(key: str, obj: object):
@@ -224,3 +193,21 @@ def one_by_one(key: str, obj: object):
     for idx, value in enumerate(getattr(obj, key)):
         new_obj = copy.deepcopy(obj)
         yield new_obj, getattr(new_obj, key)[idx]
+
+
+postprocessors = (
+    normalize_indentation,
+    lambda c: remove_comments_and_docstrings(c, remove_docstrings=True),
+)
+
+
+def postprocess(programs: list[str]) -> list[str]:
+    for postprocessor in postprocessors:
+        for idx, program in enumerate(programs):
+            try:
+                programs[idx] = postprocessor(program)
+            except Exception:
+                logger.exception(
+                    f"Encountered error while postprocessing:\n{programs[idx]}!"
+                )
+    return programs

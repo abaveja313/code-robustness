@@ -3,7 +3,8 @@ from typing import Type
 
 from mutations import (
     OneByOneVisitor,
-    OneByOneTransformer, CRT,
+    OneByOneTransformer,
+    CRT,
 )
 
 
@@ -29,7 +30,9 @@ class StringConcatToJoinVisitor(OneByOneVisitor):
                 collect_concat_parts(n.right)
             else:
                 # Convert non-string types to string using str()
-                if not isinstance(n, ast.Str) and not (isinstance(n, ast.Call) and n.func.id == "str"):
+                if not isinstance(n, ast.Str) and not (
+                    isinstance(n, ast.Call) and n.func.id == "str"
+                ):
                     n = ast.Call(
                         func=ast.Name(id="str", ctx=ast.Load()), args=[n], keywords=[]
                     )

@@ -6,8 +6,12 @@ from mutations import OneByOneTransformer, OneByOneVisitor, CRT
 
 class MultiplyBy2ToBitshiftVisitor(OneByOneVisitor):
     def is_transformable(self, node):
-        return isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult) and \
-            isinstance(node.right, ast.Constant) and node.right.value == 2
+        return (
+            isinstance(node, ast.BinOp)
+            and isinstance(node.op, ast.Mult)
+            and isinstance(node.right, ast.Constant)
+            and node.right.value == 2
+        )
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         node.op = ast.LShift()
@@ -17,8 +21,12 @@ class MultiplyBy2ToBitshiftVisitor(OneByOneVisitor):
 
 class DivideBy2ToBitshiftVisitor(OneByOneVisitor):
     def is_transformable(self, node):
-        return isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div) and \
-            isinstance(node.right, ast.Constant) and node.right.value == 2
+        return (
+            isinstance(node, ast.BinOp)
+            and isinstance(node.op, ast.Div)
+            and isinstance(node.right, ast.Constant)
+            and node.right.value == 2
+        )
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
         node.op = ast.RShift()
@@ -34,7 +42,7 @@ class NegationToComplementVisitor(OneByOneVisitor):
         new_node = ast.BinOp(
             op=ast.Add(),
             left=ast.UnaryOp(op=ast.Invert(), operand=node.operand),
-            right=ast.Constant(value=1)
+            right=ast.Constant(value=1),
         )
         return new_node
 

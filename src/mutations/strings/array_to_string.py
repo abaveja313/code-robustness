@@ -10,7 +10,11 @@ class EmptyArrayToStringVisitor(OneByOneVisitor):
         return node
 
     def is_transformable(self, node):
-        return isinstance(node, ast.Assign) and isinstance(node.value, ast.List) and len(node.value.elts) == 0
+        return (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.List)
+            and len(node.value.elts) == 0
+        )
 
 
 class EmptyArrayToStringTransformer(OneByOneTransformer, category=CRT.strings):

@@ -4,7 +4,8 @@ from typing import Type
 
 from mutations import (
     OneByOneVisitor,
-    OneByOneTransformer, CRT,
+    OneByOneTransformer,
+    CRT,
 )
 
 
@@ -51,9 +52,7 @@ class MultiplicationInversionVisitor(MathInversionVisitor):
 
     def transform_node(self, node):
         node.op = ast.Div()
-        node.right = ast.BinOp(
-            op=ast.Div(), left=ast.Constant(1.0), right=node.right
-        )
+        node.right = ast.BinOp(op=ast.Div(), left=ast.Constant(1.0), right=node.right)
         return node
 
 
@@ -64,10 +63,9 @@ class DivisionInversionVisitor(MathInversionVisitor):
 
     def transform_node(self, node):
         node.op = ast.Mult()
-        node.right = ast.BinOp(
-            op=ast.Pow(), left=node.right, right=ast.Constant(-1)
-        )
+        node.right = ast.BinOp(op=ast.Pow(), left=node.right, right=ast.Constant(-1))
         return node
+
 
 class ModuloInversionVisitor(MathInversionVisitor):
     @property

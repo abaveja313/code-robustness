@@ -75,8 +75,7 @@ class IdentifierRenameVisitorBase(OneByOneVisitor, ABC):
         id_gen = self.next_identifier()
         if is_unary_assign(node):
             return ast.Assign(
-                targets=[ast.Name(id=next(id_gen), ctx=ast.Store())],
-                value=node.value
+                targets=[ast.Name(id=next(id_gen), ctx=ast.Store())], value=node.value
             )
         elif isinstance(node, ast.FunctionDef):
             for idx, arg in enumerate(node.args.args):
@@ -113,7 +112,9 @@ class IdentifierObfuscateVisitor(IdentifierRenameVisitorBase):
 
     def next_identifier(self) -> typing.Generator[str, None, None]:
         while True:
-            yield ''.join(random.choice(string.ascii_letters) for _ in range(self.var_size))
+            yield "".join(
+                random.choice(string.ascii_letters) for _ in range(self.var_size)
+            )
 
 
 class IdentifierRenameTransformer(OneByOneTransformer, category=CRT.code_style):

@@ -13,10 +13,7 @@ class IdentityAssignmentVisitor(OneByOneVisitor):
         return is_unary_assign(node)
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:
-        identity_assign = ast.Assign(
-            targets=[node.targets[0]],
-            value=node.targets[0]
-        )
+        identity_assign = ast.Assign(targets=[node.targets[0]], value=node.targets[0])
         return StatementGroup(body=[node, identity_assign])
 
 

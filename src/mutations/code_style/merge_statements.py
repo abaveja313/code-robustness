@@ -4,7 +4,8 @@ from typing import Callable
 from asttokens import asttokens
 
 from mutations import (
-    RegisteredTransformation, CRT,
+    RegisteredTransformation,
+    CRT,
 )
 
 
@@ -21,14 +22,15 @@ class MergeConsecutiveStatements:
         def merge_two_statements(stmt1, stmt2):
             start1, end1 = self.atok.get_text_range(stmt1)
             start2, end2 = self.atok.get_text_range(stmt2)
-            merged_code = self.source[start1:end1] + '; ' + self.source[start2:end2]
+            merged_code = self.source[start1:end1] + "; " + self.source[start2:end2]
             return self.source[:start1] + merged_code + self.source[end2:]
 
         i = 0
         while i < len(statements) - 1:
             stmt1, stmt2 = statements[i], statements[i + 1]
-            if isinstance(stmt1, (ast.Expr, ast.Assign, ast.AugAssign)) and \
-                    isinstance(stmt2, (ast.Expr, ast.Assign, ast.AugAssign)):
+            if isinstance(stmt1, (ast.Expr, ast.Assign, ast.AugAssign)) and isinstance(
+                stmt2, (ast.Expr, ast.Assign, ast.AugAssign)
+            ):
                 new_source = merge_two_statements(stmt1, stmt2)
                 merged_versions.append(new_source)
             i += 1
@@ -43,7 +45,7 @@ class MergeConsecutiveStatements:
                 yield merged_body
 
             # Process orelse body if exists
-            if hasattr(node, 'orelse') and node.orelse:
+            if hasattr(node, "orelse") and node.orelse:
                 merged_orelse = self.merge_statements(node.orelse)
                 for merged_body in merged_orelse:
                     yield merged_body
@@ -73,6 +75,7 @@ class MergeStatementsTransformer(RegisteredTransformation, category=CRT.code_sty
             return list(merger.get_merged_versions())
 
         return process
+
 
 code = """
 a = 3

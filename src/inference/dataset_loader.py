@@ -1,11 +1,16 @@
 import textwrap
-from dataclasses import dataclass
-from enum import Enum, auto
-from evalplus.evaluate import get_groundtruth, get_mbpp_plus, get_mbpp_plus_hash, get_human_eval_plus, \
-    get_human_eval_plus_hash
+
 from evalplus.eval._special_oracle import MBPP_OUTPUT_NOT_NONE_TASKS
+from evalplus.evaluate import (
+    get_groundtruth,
+    get_mbpp_plus,
+    get_mbpp_plus_hash,
+    get_human_eval_plus,
+    get_human_eval_plus_hash,
+)
 from loguru import logger
 from radon.metrics import mi_parameters
+
 from shared.ast_utils import get_function_declaration_line
 
 
@@ -15,7 +20,9 @@ class Dataset:
 
 
 class DatasetManager:
-    def __init__(self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False):
+    def __init__(
+        self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False
+    ):
         self.dataset_name = dataset
         self.dataset_params = dict(mini=mini, noextreme=noextreme)
 
@@ -41,7 +48,7 @@ class DatasetManager:
         self.ground_truth = get_groundtruth(
             self.dataset,
             self.dataset_hash,
-            MBPP_OUTPUT_NOT_NONE_TASKS if self.dataset_name == Dataset.MBPP else []
+            MBPP_OUTPUT_NOT_NONE_TASKS if self.dataset_name == Dataset.MBPP else [],
         )
 
     def get_correct(self, problem_id):
@@ -52,15 +59,15 @@ class DatasetManager:
 
     def find_seeds(self, k: int, metric: str):
         metric_mapping = {
-            'cyclomatic_complexity': 0,
-            'halstead_volume': 1,
-            'logical_lines': 2
+            "cyclomatic_complexity": 0,
+            "halstead_volume": 1,
+            "logical_lines": 2,
         }
         assert metric in metric_mapping, "Metric not supported"
 
         solution_scores = {}
         for problem_id, detail in self.dataset.items():
-            canonical_solution = detail['prompt'] + detail['canonical_solution']
+            canonical_solution = detail["prompt"] + detail["canonical_solution"]
             complexity = mi_parameters(canonical_solution)
             solution_scores[problem_id] = complexity[metric_mapping[metric]]
 
@@ -73,13 +80,11 @@ class DatasetManager:
             return
 
         for problem_id in self.dataset:
-            prompt = self.dataset[problem_id]['prompt']
-            canonical = self.dataset[problem_id]['canonical_solution']
-            entry_point = self.dataset[problem_id]['entry_point']
-            function_declaration = get_function_declaration_line(
-                canonical, entry_point
-            )
-            indented_instructions = textwrap.indent(prompt, ' ' * 4)
+            prompt = self.dataset[problem_id]["prompt"]
+            canonical = self.dataset[problem_id]["canonical_solution"]
+            entry_point = self.dataset[problem_id]["entry_point"]
+            function_declaration = get_function_declaration_line(canonical, entry_point)
+            indented_instructions = textwrap.indent(prompt, " " * 4)
             formatted = f"{function_declaration}\n{indented_instructions}"
             logger.info(f"Replacing Prompt for Problem ID: {problem_id}.")
-            self.dataset[problem_id]['prompt'] = formatted
+            self.dataset[problem_id]["prompt"] = formatted

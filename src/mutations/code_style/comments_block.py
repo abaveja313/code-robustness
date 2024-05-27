@@ -14,7 +14,7 @@ class BlockCommentsTransformer(RegisteredTransformation, category=CRT.code_style
         return True  # Set to False to generate different variations
 
     def transform(self, code: str):
-        new_lines = code.split('\n')
+        new_lines = code.split("\n")
         results = []
 
         for i, line in enumerate(new_lines):
@@ -23,9 +23,11 @@ class BlockCommentsTransformer(RegisteredTransformation, category=CRT.code_style
             indentation_level = len(line) - len(line.lstrip())
             if indentation_level > 0:
                 copied = new_lines.copy()
-                indented_comment = [" " * indentation_level + cmt for cmt in self.comment.split('\n')]
+                indented_comment = [
+                    " " * indentation_level + cmt for cmt in self.comment.split("\n")
+                ]
                 copied.insert(i, "\n".join(indented_comment))
-                results.append('\n'.join(copied))
+                results.append("\n".join(copied))
 
         return results
 

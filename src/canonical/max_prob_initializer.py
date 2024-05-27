@@ -7,11 +7,12 @@ import joblib
 import numpy as np
 import tqdm
 from evalplus.evaluate import check_correctness
+from loguru import logger
+from vllm import CompletionOutput
+
 from inference.dataset_loader import DatasetManager
 from inference.models import VllmDecoder
-from loguru import logger
-from shared.program_utils import remove_comments_and_docstrings, normalize_indentation
-from vllm import CompletionOutput
+from shared.program_utils import postprocessors
 
 
 class NoPassingSolutionException(Exception):
@@ -25,16 +26,16 @@ class DatasetName:
 
 class MaxProbInitializer:
     def __init__(
-            self,
-            model: VllmDecoder,
-            dataset_manager: DatasetManager,
-            problem_id: str,
-            passing_threshold: float = 1.0,
-            num_samples: int = 300,
-            batch_size: int = 50,
-            min_correct_samples: int = 10,
-            mini=True,
-            noextreme=False,
+        self,
+        model: VllmDecoder,
+        dataset_manager: DatasetManager,
+        problem_id: str,
+        passing_threshold: float = 1.0,
+        num_samples: int = 300,
+        batch_size: int = 50,
+        min_correct_samples: int = 10,
+        mini=True,
+        noextreme=False,
     ):
         if mini and noextreme:
             raise ValueError("Cannot specify both mini=True and noextreme=True")
@@ -119,7 +120,12 @@ class MaxProbInitializer:
         )
         if os.path.exists(cache_file):
             logger.info(f"Loading cached centroid solution for task {self.task_id}")
-            return joblib.load(cache_file)
+            canonical = joblib.load(cache_file)
+            logger.info(
+                f"Canonical Solution Probability: {np.exp(canonical[1])} (logprob: {canonical[1]})"
+            )
+            logger.info(f"Canonical Solution: {canonical[0]}")
+            return canonical
 
         new_solution = self._canonical_solution()
         os.makedirs(self.cache_dir, exist_ok=True)
@@ -129,15 +135,11 @@ class MaxProbInitializer:
         return new_solution
 
     def postprocess_sequences(self, sequences: list[CompletionOutput]):
-        transforms = (
-            lambda c: remove_comments_and_docstrings(c, remove_docstrings=True),
-            normalize_indentation,
-        )
         processed = []
         for sequence in tqdm.tqdm(sequences, desc="Postprocessing Samples"):
             try:
                 result = sequence.full_text
-                for transform in transforms:
+                for transform in postprocessors:
                     result = transform(result)
                 sequence.full_text = result
                 processed.append(sequence)
