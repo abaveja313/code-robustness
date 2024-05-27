@@ -82,6 +82,7 @@ def evaluate_problem(
 def benchmark(
         model_name: str,
         seed_problems: list[str],
+        dataset_name: str,
         mini: bool = True,
         noextreme: bool = False,
         temperature: float = 0.5,
@@ -95,7 +96,7 @@ def benchmark(
         model_name,
         backend='vllm',
         temperature=temperature,
-        dataset='humaneval'
+        dataset=dataset_name
     )
     dataset_params = {
         'mini': mini,
@@ -119,5 +120,8 @@ def benchmark(
 if __name__ == "__main__":
     benchmark(
         model_name='deepseek-ai/deepseek-coder-1.3b-instruct',
-        seed_problems=['HumanEval/1'],
+        seed_problems=['Mbpp/771', 'Mbpp/100', 'Mbpp/129', 'Mbpp/245', 'Mbpp/306', 'Mbpp/239', 'Mbpp/123', 'Mbpp/20',
+                       'Mbpp/721', 'Mbpp/71'],
+        mini=False,
+        noextreme=True
     )

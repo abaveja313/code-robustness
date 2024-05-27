@@ -8,17 +8,20 @@ import joblib
 import numpy as np
 import tqdm
 from evalplus.data import get_human_eval_plus, get_human_eval_plus_hash
-from evalplus.evaluate import check_correctness, get_groundtruth
+from evalplus.evaluate import check_correctness, get_groundtruth, get_mbpp_plus, get_mbpp_plus_hash
+from inference.models import VllmDecoder
 from loguru import logger
+from shared.program_utils import remove_comments_and_docstrings, normalize_indentation
 from vllm import CompletionOutput
 
-from inference.models import VllmDecoder
-from shared.program_utils import remove_comments_and_docstrings, normalize_indentation
-
-from loguru import logger
 
 class NoPassingSolutionException(Exception):
     pass
+
+
+class DatasetName:
+    HUMAN_EVAL = "humaneval"
+    MBPP = "mbpp"
 
 
 class MaxProbInitializer:
@@ -26,6 +29,7 @@ class MaxProbInitializer:
             self,
             model: VllmDecoder,
             problem_id: str,
+            dataset: str = "mbpp",
             passing_threshold: float = 1.0,
             num_samples: int = 300,
             batch_size: int = 50,
@@ -33,12 +37,13 @@ class MaxProbInitializer:
             mini=True,
             noextreme=False,
     ):
-
         if mini and noextreme:
             raise ValueError("Cannot specify both mini=True and noextreme=True")
 
         self.dataset_params = dict(mini=mini, noextreme=noextreme)
-        self.problem = self.human_eval[problem_id]
+        self.dataset_name = dataset
+        self.task_id = problem_id
+        self.problem = self.dataset[problem_id]
         self.batch_size = batch_size
         self.passing_threshold = passing_threshold
         self.num_samples = num_samples
@@ -47,14 +52,24 @@ class MaxProbInitializer:
         self.cache_dir = "cache"
 
     @cached_property
-    def human_eval(self) -> dict[str, dict]:
-        return get_human_eval_plus(**self.dataset_params)
+    def dataset(self) -> dict[str, dict]:
+        if self.dataset_name == DatasetName.HUMAN_EVAL:
+            return get_human_eval_plus(**self.dataset_params)
+        elif self.dataset_name == DatasetName.MBPP:
+            return get_mbpp_plus(**self.dataset_params)
+        else:
+            raise ValueError(f"Unknown dataset name: {self.dataset_name}")
 
     @cached_property
     def ground_truth(self):
-        return get_groundtruth(
-            self.human_eval, get_human_eval_plus_hash(**self.dataset_params), []
-        )
+        if self.dataset_name == DatasetName.HUMAN_EVAL:
+            hash_func = get_human_eval_plus_hash
+        elif self.dataset_name == DatasetName.MBPP:
+            hash_func = get_mbpp_plus_hash
+        else:
+            raise ValueError(f"Unknown dataset name: {self.dataset_name}")
+
+        return get_groundtruth(self.dataset, hash_func(**self.dataset_params), [])
 
     def _canonical_solution(self):
         logger.info(f"Finding Canonical Solution for {self.task_id}")
@@ -66,13 +81,13 @@ class MaxProbInitializer:
         for sequence in tqdm.tqdm(sequences, desc="Evaluating Sequences"):
             full_solution = self.problem["prompt"] + sequence.text
             eval_results = check_correctness(
-                dataset="humaneval",
+                dataset=self.dataset_name,
                 completion_id=time.time_ns(),
                 expected_output=self.ground_truth[self.task_id],
                 problem=self.problem,
                 solution=full_solution,
                 base_only=False,
-                gt_time_limit_factor=15.0,
+                gt_time_limit_factor=45.0,
             )
 
             total = eval_results["base"][1] + eval_results["plus"][1]
