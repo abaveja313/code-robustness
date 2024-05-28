@@ -7,28 +7,23 @@ from typing import List
 
 from loguru import logger
 
+from shared.structs import BenchmarkResult
+
 IDENT = " " * 4
 
 
-def remove_pass(inputs: List[str]) -> List[str]:
-    results = []
-    for prompt in inputs:
-        prompt_lines = prompt.strip().splitlines()
-        if len(prompt_lines) > 0 and prompt_lines[-1].strip() == "pass":
-            results.append("\n".join(prompt_lines[:-1]))
-        else:
-            results.append(prompt)
-
-    return results
+def remove_pass(prompt: str) -> str:
+    prompt_lines = prompt.strip().splitlines()
+    if len(prompt_lines) > 0 and prompt_lines[-1].strip() == "pass":
+        return "\n".join(prompt_lines[:-1])
+    return prompt
 
 
 def normalize_indentation(code: str) -> str:
     code = textwrap.dedent(code)
     code = code.replace("\t", IDENT)
-    # Split the input code into lines and strip trailing whitespace
     lines = [line.rstrip() for line in code.splitlines()]
 
-    # Remove leading blank lines
     while lines and not lines[0].strip():
         lines.pop(0)
 
@@ -71,7 +66,7 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
     prev_toktype = tokenize.INDENT
     last_lineno = -1
     last_col = 0
-    first_token = True
+
     for tok in tokenize.generate_tokens(io_obj.readline):
         token_type, token_string, start, end, line = tok
         start_line, start_col = start
@@ -82,7 +77,7 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
         if start_col > last_col:
             out += " " * (start_col - last_col)
         if token_type == tokenize.COMMENT:
-            if token_string.startswith("# this is a "):
+            if token_string.startswith("# I am a "):
                 out += token_string
         elif (
                 token_type == tokenize.STRING
@@ -194,16 +189,20 @@ def one_by_one(key: str, obj: object):
 postprocessors = (
     normalize_indentation,
     lambda c: remove_comments_and_docstrings(c, remove_docstrings=True),
+    remove_pass
 )
 
 
-def postprocess(programs: list[str], result) -> list[str]:
+def postprocess(programs: list[str], result: BenchmarkResult, mutated: bool = False) -> list[str]:
     for postprocessor in postprocessors:
         for idx, program in enumerate(programs):
             try:
                 programs[idx] = postprocessor(program)
             except Exception:
-                result.bad_syntax_examples.append(programs[idx])
+                if mutated:
+                    result.bad_post_process_mutated_examples.append(programs[idx])
+                else:
+                    result.bad_post_process_original_examples.append(programs[idx])
                 logger.exception(
                     f"Encountered error while postprocessing:\n{programs[idx]}!"
                 )

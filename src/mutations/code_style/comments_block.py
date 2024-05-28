@@ -7,7 +7,7 @@ class BlockCommentsTransformer(RegisteredTransformation, category=CRT.code_style
 
     @property
     def comment(self):
-        return "# I am a comment\n# I am a comment"
+        return "# I am a block comment\n# I am a block comment"
 
     @property
     def deterministic(self):

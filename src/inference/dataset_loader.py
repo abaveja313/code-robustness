@@ -21,7 +21,7 @@ class Dataset:
 
 class DatasetManager:
     def __init__(
-        self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False
+            self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False
     ):
         self.dataset_name = dataset
         self.dataset_params = dict(mini=mini, noextreme=noextreme)
@@ -76,6 +76,11 @@ class DatasetManager:
         return seeds
 
     def format_prompts(self):
+        # Format:
+        # def function_name(arg1, arg2, ...):
+        #   """
+        #   prompt
+        #   """
         if self.dataset_name == Dataset.HUMANEVAL:
             return
 
@@ -86,5 +91,4 @@ class DatasetManager:
             function_declaration = get_function_declaration_line(canonical, entry_point)
             indented_instructions = textwrap.indent(prompt, " " * 4)
             formatted = f"{function_declaration}\n{indented_instructions}"
-            logger.info(f"Replacing Prompt for Problem ID: {problem_id}.")
-            self.dataset[problem_id]["prompt"] = formatted
+            self.dataset[problem_id]["formatted_prompt"] = formatted

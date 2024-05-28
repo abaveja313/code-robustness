@@ -93,13 +93,13 @@ def make_stem_completion_prompt(prompt: str, tokenizer: AutoTokenizer) -> str:
 
 class DecoderBase(ABC):
     def __init__(
-        self,
-        name: str,
-        batch_size: int = 1,
-        temperature: float = 0.8,
-        max_new_tokens: int = 2048,
-        dtype: str = "bfloat16",  # default
-        trust_remote_code: bool = False,
+            self,
+            name: str,
+            batch_size: int = 1,
+            temperature: float = 0.8,
+            max_new_tokens: int = 2048,
+            dtype: str = "bfloat16",  # default
+            trust_remote_code: bool = False,
     ) -> None:
         print("Initializing a decoder model: {} ...".format(name))
         self.name = name
@@ -113,7 +113,7 @@ class DecoderBase(ABC):
 
     @abstractmethod
     def codegen(
-        self, prompt: str, do_sample: bool = True, num_samples: int = 200
+            self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         pass
 
@@ -141,14 +141,17 @@ class VllmDecoder(DecoderBase):
         self.tokenizer = AutoTokenizer.from_pretrained(self.name)
         if self.tokenizer.chat_template is None:
             self.eos += extra_eos_for_direct_completion(dataset)
-        self.llm = LLM(model=name, max_model_len=2048, **kwargs)
+        self.llm = LLM(model=name, max_model_len=2048, enable_prefix_caching=True, **kwargs)
 
     def is_direct_completion(self) -> bool:
         return self.tokenizer.chat_template is None
 
+    def predict(self, prompts: list[str], sampling_params: SamplingParams) -> List[RequestOutput]:
+
+
     def complete_stems(
-        self, prompt: str, num_samples: int = 1, do_sample: bool = True
-    ) -> List[str]:
+            self, prompt: str, num_samples: int = 1, do_sample: bool = True
+    ) -> List[RequestOutput]:
 
         vllm_outputs = self.llm.generate(
             prompt,
@@ -162,11 +165,11 @@ class VllmDecoder(DecoderBase):
             use_tqdm=False,
         )
 
-        gen_strs = [x.outputs[0].text.replace("\t", "    ") for x in vllm_outputs]
-        return gen_strs
+        # gen_strs = [x.outputs[0].text.replace("\t", "    ") for x in vllm_outputs]
+        return vllm_outputs
 
     def codegen(
-        self, prompt: str, do_sample: bool = True, num_samples: int = 200
+            self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[RequestOutput]:
         if do_sample:
             assert self.temperature > 0, "Temperature must be greater than 0!"
@@ -192,15 +195,16 @@ class GeneralVllmDecoder(VllmDecoder):
         self.eos += ["\n```\n", "```", "assert"]
         print(f"EOS strings: {self.eos}")
 
+    def predict(self):
     def codegen(
-        self, prompt: str, do_sample: bool = True, num_samples: int = 200
+            self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[RequestOutput]:
         prompt = make_codegen_prompt(prompt, self.tokenizer)
         return VllmDecoder.codegen(self, prompt, do_sample, num_samples)
 
     def complete_stems(
-        self, prompt: str, num_samples: int = 1, do_sample: bool = True
-    ) -> List[str]:
+            self, prompt: str, num_samples: int = 1, do_sample: bool = True
+    ) -> List[RequestOutput]:
         vllm_outputs = self.llm.generate(
             make_stem_completion_prompt(prompt, self.tokenizer),
             SamplingParams(
@@ -213,8 +217,8 @@ class GeneralVllmDecoder(VllmDecoder):
             use_tqdm=False,
         )
 
-        gen_strs = [prompt + "\n" + x.text for x in vllm_outputs[0].outputs]
-        return gen_strs
+        # gen_strs = [prompt + "\n" + x.text for x in vllm_outputs[0].outputs]
+        return vllm_outputs
 
 
 class HfTorchDecoder(DecoderBase):
@@ -243,7 +247,7 @@ class HfTorchDecoder(DecoderBase):
 
     @torch.inference_mode()
     def codegen(
-        self, prompt: str, do_sample: bool = True, num_samples: int = 200
+            self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         if self.temperature == 0:
             assert not do_sample
@@ -278,7 +282,7 @@ class HfTorchDecoder(DecoderBase):
         )
 
         gen_strs = self.tokenizer.batch_decode(
-            outputs[:, input_tokens.size(-1) :],
+            outputs[:, input_tokens.size(-1):],
             skip_special_tokens=self.skip_special_tokens,
         )
         outputs = []
@@ -300,7 +304,7 @@ class GenenralHfTorchDecoder(HfTorchDecoder):
         self.tokenizer = AutoTokenizer.from_pretrained(self.name)
 
     def codegen(
-        self, prompt: str, do_sample: bool = True, num_samples: int = 200
+            self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         prompt = make_codegen_prompt(prompt, self.tokenizer)
         return HfTorchDecoder.codegen(self, prompt, do_sample, num_samples)
@@ -314,7 +318,7 @@ class OpenAIChatDecoder(DecoderBase):
         self.client = openai.OpenAI(base_url=base_url)
 
     def codegen(
-        self, prompt: str, do_sample: bool = True, num_samples: int = 200
+            self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         if do_sample:
             assert self.temperature > 0, "Temperature must be positive for sampling"
@@ -369,7 +373,7 @@ class MistralChatDecoder(DecoderBase):
         self.client = MistralClient(api_key=os.getenv("MISTRAL_API_KEY"))
 
     def codegen(
-        self, prompt: str, do_sample: bool = True, num_samples: int = 200
+            self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         from mistralai.client import ChatMessage
 
@@ -391,7 +395,7 @@ class MistralChatDecoder(DecoderBase):
                     ChatMessage(
                         role="user",
                         content="Please generate code to solve the following problem in a Python markdown block:"
-                        + f"\n```python\n{prompt.strip()}\n```",
+                                + f"\n```python\n{prompt.strip()}\n```",
                     )
                 ],
                 max_tokens=self.max_new_tokens,
@@ -419,7 +423,7 @@ class AnthropicDecoder(DecoderBase, ABC):
 
 class AnthropicMessageDecoder(AnthropicDecoder):
     def codegen(
-        self, prompt: str, do_sample: bool = True, num_samples: int = 200
+            self, prompt: str, do_sample: bool = True, num_samples: int = 200
     ) -> List[str]:
         if do_sample:
             assert self.temperature > 0, "Temperature must be positive for sampling"
@@ -437,7 +441,7 @@ class AnthropicMessageDecoder(AnthropicDecoder):
                     {
                         "role": "user",
                         "content": "Please generate code to complete the following problem wrapped in a Python markdown block:"
-                        + f"\n```python\n{prompt.strip()}\n```\n",
+                                   + f"\n```python\n{prompt.strip()}\n```\n",
                     }
                 ],
                 max_tokens=self.max_new_tokens,
@@ -450,13 +454,13 @@ class AnthropicMessageDecoder(AnthropicDecoder):
 
 
 def make_model(
-    model: str,
-    backend: str,
-    dataset: str,
-    batch_size: int = 1,
-    temperature: float = 0.0,
-    tp=1,
-    base_url=None,
+        model: str,
+        backend: str,
+        dataset: str,
+        batch_size: int = 1,
+        temperature: float = 0.0,
+        tp=1,
+        base_url=None,
 ):
     if backend == "vllm":
         return GeneralVllmDecoder(

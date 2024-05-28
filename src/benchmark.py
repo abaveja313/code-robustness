@@ -12,18 +12,18 @@ from mutations import CRT, RegisteredTransformation
 from mutations.registry import MutationRegistry
 from shared.gcs_storage_manager import GCSResultStorageManager
 from shared.structs import MutatedStem, BenchmarkResult
-
+ 
 
 def evaluate_problem(
-    model: VllmDecoder,
-    problem_id: str,
-    dataset_manager: DatasetManager,
-    canonical_samples: int,
-    canonical_batch_size: int,
-    scoring_samples: int,
-    min_correct_samples: int,
-    result_manager: GCSResultStorageManager,
-    exclude_mutation_types: list[CRT] = None,
+        model: VllmDecoder,
+        problem_id: str,
+        dataset_manager: DatasetManager,
+        canonical_samples: int,
+        canonical_batch_size: int,
+        scoring_samples: int,
+        min_correct_samples: int,
+        result_manager: GCSResultStorageManager,
+        exclude_mutation_types: list[CRT] = None,
 ):
     logger.info("Finding canonical solution...")
     initializer = MaxProbInitializer(
@@ -39,6 +39,8 @@ def evaluate_problem(
     mutations: list[RegisteredTransformation] = MutationRegistry.get(
         exclude=exclude_mutation_types
     )
+    all_mutations = list(chain.from_iterable(mutations))
+    logger.info(f"Found {len(all_mutations)} available mutations")
     evaluator = StemEvaluator(
         model=model,
         problem_id=problem_id,
@@ -46,9 +48,9 @@ def evaluate_problem(
         dataset_manager=dataset_manager,
     )
 
-    pbar = tqdm.tqdm(list(chain.from_iterable(mutations)))
+    pbar = tqdm.tqdm(all_mutations)
 
-    for mutation in pbar:
+    for mid, mutation in enumerate(pbar):
         pbar.set_description(f"{mutation.__name__}")
         stems: list[MutatedStem] = mutation().get_transformations(
             current_text=canonical_solution
@@ -57,9 +59,10 @@ def evaluate_problem(
             logger.info("Skipping mutation as it produced no output")
             continue
 
-        for stem in tqdm.tqdm(stems):
+        for sid, stem in enumerate(tqdm.tqdm(stems)):
             mutation_result = BenchmarkResult(
-                problem_id=problem_id, mutation=mutation.__name__
+                problem_id=problem_id, stem_id=str(sid), mutation_id=str(mid),
+                mutation=mutation.__name__
             )
             evaluator.compute_log_pass_ratio(stem, mutation_result)
             logger.info("Result: " + str(mutation_result))
@@ -67,21 +70,21 @@ def evaluate_problem(
 
 
 def benchmark(
-    model_name: str,
-    dataset_name: str,
-    dataset_mini: bool = True,
-    dataset_noextreme: bool = False,
-    temperature: float = 0.5,
-    canonical_samples: int = 200,
-    canonical_batch_size: int = 50,
-    scoring_samples: int = 200,
-    min_correct_samples: int = 10,
-    seed_problems_k: int = 5,
-    seed_problem_metric: str = "cyclomatic_complexity",
-    seed_problems: list[str] = None,
-    exclude_mutation_types: list[CRT] = None,
-    gcs_bucket_name: str = "amrit-research-samples",
-    gcs_project_name: str = "research",
+        model_name: str,
+        dataset_name: str,
+        dataset_mini: bool = True,
+        dataset_noextreme: bool = False,
+        temperature: float = 0.5,
+        canonical_samples: int = 200,
+        canonical_batch_size: int = 50,
+        scoring_samples: int = 200,
+        min_correct_samples: int = 10,
+        seed_problems_k: int = 5,
+        seed_problem_metric: str = "cyclomatic_complexity",
+        seed_problems: list[str] = None,
+        exclude_mutation_types: list[CRT] = None,
+        gcs_bucket_name: str = "amrit-research-samples",
+        gcs_project_name: str = "research",
 ):
     result_manager = GCSResultStorageManager(
         bucket_name=gcs_bucket_name, project=gcs_project_name

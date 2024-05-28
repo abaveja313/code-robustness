@@ -21,15 +21,7 @@ class GCSResultStorageManager:
         logger.info(f"Adding result to GCS")
         json_line = json.dumps(result.__dict__) + "\n"
 
-        full_path = f"{self.bucket_name}/{GCSResultStorageManager.RESULT_PATH}"
-
-        try:
-            with self.gcs.open(full_path, "r") as f:
-                existing_content = f.read()
-        except FileNotFoundError:
-            existing_content = ""
-
-        updated_content = existing_content + json_line
+        full_path = f"{self.bucket_name}/{result.problem_id}_{result.mutation}_{result.stem_id}.jsonl"
 
         with self.gcs.open(full_path, "w") as f:
-            f.write(updated_content)
+            f.write(json_line)

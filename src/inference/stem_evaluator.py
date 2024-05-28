@@ -33,7 +33,8 @@ class StemEvaluator:
     def compute_log_pass_ratio(
             self, stem: MutatedStem, result: BenchmarkResult, epsilon=1e-6
     ):
-        logger.info("Computing Log Pass Ratio for Stem: {}", stem)
+        logger.info("Computing Log Pass Ratio for:\n===========\nOld:\n{}\n\nMutated:\n{}",
+                    stem.original_stem, stem.mutated_stem)
         result.add_stem(stem)
         original_predictions = self.model.complete_stems(
             stem.original_stem, do_sample=True, num_samples=self.num_samples
@@ -43,14 +44,14 @@ class StemEvaluator:
             stem.mutated_stem, do_sample=True, num_samples=self.num_samples
         )
 
-        original_predictions_post = postprocess(original_predictions, result)
-        mutated_predictions_post = postprocess(mutated_predictions, result)
+        original_predictions_post = postprocess(original_predictions, result, mutated=False)
+        mutated_predictions_post = postprocess(mutated_predictions, result, mutated=True)
 
         original_pass_at = self.compute_pass_at_threaded(
-            stem.original_stem, original_predictions_post, result, "Original"
+            stem.original_stem, original_predictions_post, result, "Original", mutated=False
         )
         mutated_pass_at = self.compute_pass_at_threaded(
-            stem.mutated_stem, mutated_predictions_post, result, "Mutated"
+            stem.mutated_stem, mutated_predictions_post, result, "Mutated", mutated=True
         )
         result.add_pass_ats(original_pass_at, mutated_pass_at)
 
@@ -79,7 +80,8 @@ class StemEvaluator:
         eval_results["solution"] = solution
         result_queue.put(eval_results)
 
-    def compute_pass_at_threaded(self, stem: str, solutions: list[str], result: BenchmarkResult, desc: str):
+    def compute_pass_at_threaded(self, stem: str, solutions: list[str], result: BenchmarkResult, desc: str,
+                                 mutated=False):
         num_threads = threading.active_count()
         result_queue = Queue()
 
@@ -110,27 +112,41 @@ class StemEvaluator:
             t.join()
 
         num_passed = 0
+        i = 0
         while not result_queue.empty():
+            i += 1
+
             eval_results = result_queue.get()
             solution = eval_results.pop("solution")
             eval_results.pop("completion_id")
             eval_results.pop("task_id")
             eval_results.pop("_identifier")
-            logger.debug("{} Eval Results: {}", desc, eval_results)
+            if i % 50 == 0:
+                logger.debug("{} Eval Results: {}", desc, eval_results)
+
             total = eval_results["base"][1] + eval_results["plus"][1]
             passed = [i for i in total if i == 1]
             if len(total) == 0:
                 logger.error("Solution {} is syntactically incorrect", solution)
-                result.bad_syntax_examples.append(solution)
+                if mutated:
+                    result.bad_syntax_mutated_examples.append(solution)
+                else:
+                    result.bad_syntax_original_examples.append(solution)
                 continue
             if not len(total) == 0 and len(total) == len(passed):
                 num_passed += 1
-                result.passed_examples.append(solution)
+                if mutated:
+                    result.passed_mutated_examples.append(solution)
+                else:
+                    result.passed_original_examples.append(solution)
             else:
-                result.failed_examples.append(solution)
+                if mutated:
+                    result.failed_mutated_examples.append(solution)
+                else:
+                    result.failed_original_examples.append(solution)
 
         pass_at = {}
         for k in self.k:
             pass_at[k] = pass_at_k(len(solutions), num_passed, k)
-        logger.debug("Stem: {}, Pass@: {}", stem, pass_at)
+        logger.debug("Stem:\n {}, Pass@: {}", stem, pass_at)
         return pass_at
