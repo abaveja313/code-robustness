@@ -119,6 +119,8 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
 def parse_stem(old_code: str, new_code: str):
     old_lines = old_code.splitlines()
     new_lines = new_code.splitlines()
+    # old_lines = old_code.replace('\n\n', '\n').splitlines()
+    # new_lines = new_code.replace('\n\n', '\n').splitlines()
 
     old_index = 0
     new_index = 0
@@ -131,9 +133,11 @@ def parse_stem(old_code: str, new_code: str):
         # We don't care about extra newlines being inserted (though this shouldn't happen)
         while old_line == '\n' and old_index < len(old_lines):
             old_index += 1
+            continue
 
         while new_line == '\n' and new_index < len(new_lines):
             new_index += 1
+            continue
 
         # Skip comments and docstrings
         if old_line == new_line or old_line.startswith(('"""', "'''", "#")):

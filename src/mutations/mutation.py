@@ -3,6 +3,7 @@ from typing import Type, Callable
 
 from loguru import logger
 
+from inference.processors import Processors
 from mutations.registry import RegisteredMixin
 from mutations.visitor import OneByOneVisitor
 from shared.structs import MutatedStem
@@ -23,7 +24,9 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
     def postprocess(self, original: str, mutated: list[str]) -> list[MutatedStem]:
         results = []
         for m in mutated:
-            new_stem, old_stem = parse_stem(original, m)
+            post_processed_original = Processors.postprocess_sequence(original)
+            post_processed_mutated = Processors.postprocess_sequence(m)
+            new_stem, old_stem = parse_stem(post_processed_original, post_processed_mutated)
             stem = MutatedStem(original_stem=old_stem, mutated_stem=new_stem)
             results.append(stem)
         return results

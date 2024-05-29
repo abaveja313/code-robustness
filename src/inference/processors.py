@@ -1,4 +1,6 @@
-from shared.program_utils import remove_pass, remove_comments_and_docstrings, normalize_indentation
+import black
+
+from shared.program_utils import remove_pass, remove_comments_and_docstrings
 
 
 class PostprocessingException(Exception):
@@ -17,7 +19,15 @@ class Processors:
     def postprocess_sequence(sequence: str):
         transforms = (
             lambda c: remove_comments_and_docstrings(c, remove_docstrings=False),
-            normalize_indentation,
+            lambda code: black.format_str(
+                code,
+                mode=black.Mode(
+                    string_normalization=False,
+                    line_length=120,
+                    magic_trailing_comma=False
+                )
+            )
+
         )
 
         for transform in transforms:

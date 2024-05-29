@@ -1,3 +1,4 @@
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue
@@ -93,7 +94,7 @@ class StemEvaluator:
             return result_queue.get()
 
         num_passed = 0
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=2 * os.cpu_count()) as executor:
             futures = [executor.submit(check_correctness_wrapper, solution) for solution in solutions]
 
             for i, future in enumerate(as_completed(futures), start=1):
