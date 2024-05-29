@@ -1,30 +1,29 @@
-import multiprocessing
-import threading
 import time
-from functools import partial
-from typing import Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue
+from typing import Tuple
+
 from evalplus.evaluate import check_correctness
 from loguru import logger
 
-from inference.dataset_loader import DatasetManager
-from inference.models import VllmDecoder
+from inference.dataset_manager import DatasetManager
+from inference.predict import InferenceEngine
+from inference.processors import PostprocessingException
 from shared.metrics import pass_at_k
-from shared.program_utils import postprocess
-from shared.structs import BenchmarkResult
+from shared.structs import BenchmarkResult, SolutionType
 from shared.structs import MutatedStem
 
 
 class StemEvaluator:
     def __init__(
             self,
-            model: VllmDecoder,
+            inference_engine: InferenceEngine,
             dataset_manager: DatasetManager,
             problem_id: str,
             num_samples: int = 100,
             k: Tuple[int, ...] = (1, 5, 10),
     ):
-        self.model = model
+        self.inference = inference_engine
         self.dataset_manager = dataset_manager
         self.num_samples = num_samples
         self.problem_id = problem_id
@@ -36,22 +35,29 @@ class StemEvaluator:
         logger.info("Computing Log Pass Ratio for:\n===========\nOld:\n{}\n\nMutated:\n{}",
                     stem.original_stem, stem.mutated_stem)
         result.add_stem(stem)
-        original_predictions = self.model.complete_stems(
-            stem.original_stem, do_sample=True, num_samples=self.num_samples
+
+        predictions, errors = self.inference.complete_stems(
+            stem=stem,
+            num_samples=self.num_samples
         )
 
-        mutated_predictions = self.model.complete_stems(
-            stem.mutated_stem, do_sample=True, num_samples=self.num_samples
-        )
+        logger.warning("Found {} errors during postprocessing", len(errors))
 
-        original_predictions_post = postprocess(original_predictions, result, mutated=False)
-        mutated_predictions_post = postprocess(mutated_predictions, result, mutated=True)
+        for error in errors:
+            result.add_example(
+                example=error.code,
+                solution_type=SolutionType.BAD_PROCESS,
+                mutated=error.mutated
+            )
+
+        original_predictions = predictions['original'].get_code()
+        mutated_predictions = predictions['mutated'].get_code()
 
         original_pass_at = self.compute_pass_at_threaded(
-            stem.original_stem, original_predictions_post, result, "Original", mutated=False
+            stem.original_stem, original_predictions, result, "Original", mutated=False
         )
         mutated_pass_at = self.compute_pass_at_threaded(
-            stem.mutated_stem, mutated_predictions_post, result, "Mutated", mutated=True
+            stem.mutated_stem, mutated_predictions, result, "Mutated", mutated=True
         )
         result.add_pass_ats(original_pass_at, mutated_pass_at)
 
@@ -82,68 +88,31 @@ class StemEvaluator:
 
     def compute_pass_at_threaded(self, stem: str, solutions: list[str], result: BenchmarkResult, desc: str,
                                  mutated=False):
-        num_threads = threading.active_count()
-        result_queue = Queue()
-
-        def worker():
-            while True:
-                solution = solution_queue.get()
-                if solution is None:
-                    break
-                self.check_correctness_wrapper(solution, result_queue)
-                solution_queue.task_done()
-
-        solution_queue = Queue()
-        for solution in solutions:
-            solution_queue.put(solution)
-
-        threads = []
-        for _ in range(num_threads):
-            t = threading.Thread(target=worker)
-            t.start()
-            threads.append(t)
-
-        solution_queue.join()
-
-        for _ in range(num_threads):
-            solution_queue.put(None)
-
-        for t in threads:
-            t.join()
+        def check_correctness_wrapper(solution):
+            result_queue = Queue()
+            self.check_correctness_wrapper(solution, result_queue)
+            return result_queue.get()
 
         num_passed = 0
-        i = 0
-        while not result_queue.empty():
-            i += 1
+        with ThreadPoolExecutor() as executor:
+            futures = [executor.submit(check_correctness_wrapper, solution) for solution in solutions]
 
-            eval_results = result_queue.get()
-            solution = eval_results.pop("solution")
-            eval_results.pop("completion_id")
-            eval_results.pop("task_id")
-            eval_results.pop("_identifier")
-            if i % 50 == 0:
+            for i, future in enumerate(as_completed(futures), start=1):
+                eval_results = future.result()
+                solution = eval_results.pop("solution")
                 logger.debug("{} Eval Results: {}", desc, eval_results)
 
-            total = eval_results["base"][1] + eval_results["plus"][1]
-            passed = [i for i in total if i == 1]
-            if len(total) == 0:
-                logger.error("Solution {} is syntactically incorrect", solution)
-                if mutated:
-                    result.bad_syntax_mutated_examples.append(solution)
+                total = eval_results["base"][1] + eval_results["plus"][1]
+                passed = [i for i in total if i == 1]
+                if len(total) == 0:
+                    logger.error("Solution {} is syntactically incorrect:\n", solution)
+                    result.add_example(solution, SolutionType.BAD_SYNTAX, mutated)
+                    continue
+                if not len(total) == 0 and len(total) == len(passed):
+                    num_passed += 1
+                    result.add_example(solution, SolutionType.PASSED, mutated)
                 else:
-                    result.bad_syntax_original_examples.append(solution)
-                continue
-            if not len(total) == 0 and len(total) == len(passed):
-                num_passed += 1
-                if mutated:
-                    result.passed_mutated_examples.append(solution)
-                else:
-                    result.passed_original_examples.append(solution)
-            else:
-                if mutated:
-                    result.failed_mutated_examples.append(solution)
-                else:
-                    result.failed_original_examples.append(solution)
+                    result.add_example(solution, SolutionType.FAILED, mutated)
 
         pass_at = {}
         for k in self.k:

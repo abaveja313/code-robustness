@@ -5,17 +5,18 @@ import tqdm
 from loguru import logger
 
 from canonical import MaxProbInitializer
-from inference.dataset_loader import DatasetManager
-from inference.models import make_model, VllmDecoder
+from inference.dataset_manager import DatasetManager
+
+from inference.predict import InferenceEngine
 from inference.stem_evaluator import StemEvaluator
 from mutations import CRT, RegisteredTransformation
 from mutations.registry import MutationRegistry
 from shared.gcs_storage_manager import GCSResultStorageManager
 from shared.structs import MutatedStem, BenchmarkResult
- 
+
 
 def evaluate_problem(
-        model: VllmDecoder,
+        inference_engine: InferenceEngine,
         problem_id: str,
         dataset_manager: DatasetManager,
         canonical_samples: int,
@@ -27,7 +28,7 @@ def evaluate_problem(
 ):
     logger.info("Finding canonical solution...")
     initializer = MaxProbInitializer(
-        model=model,
+        inference_engine=inference_engine,
         problem_id=problem_id,
         num_samples=canonical_samples,
         batch_size=canonical_batch_size,
@@ -42,7 +43,7 @@ def evaluate_problem(
     all_mutations = list(chain.from_iterable(mutations))
     logger.info(f"Found {len(all_mutations)} available mutations")
     evaluator = StemEvaluator(
-        model=model,
+        inference_engine=inference_engine,
         problem_id=problem_id,
         num_samples=scoring_samples,
         dataset_manager=dataset_manager,
@@ -71,10 +72,13 @@ def evaluate_problem(
 
 def benchmark(
         model_name: str,
+        model_direct_completion: bool,
+        model_temp: float,
         dataset_name: str,
+        model_dtype="bfloat16",
+        model_top_p: float = 0.9,
         dataset_mini: bool = True,
         dataset_noextreme: bool = False,
-        temperature: float = 0.5,
         canonical_samples: int = 200,
         canonical_batch_size: int = 50,
         scoring_samples: int = 200,
@@ -87,13 +91,23 @@ def benchmark(
         gcs_project_name: str = "research",
 ):
     result_manager = GCSResultStorageManager(
-        bucket_name=gcs_bucket_name, project=gcs_project_name
+        bucket_name=gcs_bucket_name,
+        project=gcs_project_name
     )
     dataset_manager = DatasetManager(
-        dataset=dataset_name, mini=dataset_mini, noextreme=dataset_noextreme
+        dataset=dataset_name,
+        mini=dataset_mini,
+        noextreme=dataset_noextreme
     )
-    model = make_model(
-        model_name, backend="vllm", temperature=temperature, dataset=dataset_name
+
+    inference_engine = InferenceEngine(
+        model_name=model_name,
+        dataset_manager=dataset_manager,
+        direct_completion=model_direct_completion,
+        dtype=model_dtype,
+        trust_remote_code=False,
+        temperature=model_temp,
+        top_p=model_top_p
     )
 
     if seed_problems is None:
@@ -105,7 +119,7 @@ def benchmark(
     for seed_problem in seed_problems:
         logger.info(f"Evaluating problem: {seed_problem}")
         evaluate_problem(
-            model=model,
+            inference_engine=inference_engine,
             problem_id=seed_problem,
             dataset_manager=dataset_manager,
             canonical_samples=canonical_samples,
@@ -122,7 +136,9 @@ if __name__ == "__main__":
     benchmark(
         dataset_name="mbpp",
         model_name="deepseek-ai/deepseek-coder-1.3b-instruct",
-        temperature=0.5,
+        model_direct_completion=False,
+        model_dtype="half",
+        model_temp=0.5,
         canonical_batch_size=200,
         seed_problems_k=10,
         seed_problem_metric="cyclomatic_complexity",
