@@ -97,12 +97,32 @@ class TestConstantSplitting:
         ]
         verify_visitor(ConstantSplittingVisitor, code, expected)
 
+    def test_constant_splitting_excludes_docstring(self):
+        code = """
+        def foo():
+            '''
+            This is a docstring
+            '''
+            pass
+        """
+        verify_visitor(ConstantSplittingVisitor, code, [])
+
 
 class TestStringConcatToFormatted:
     def test_string_concat_simple(self):
         code = """a = 'hello' + 'world'"""
         expected = """a = f'helloworld'"""
         verify_visitor(StringConcatToFStringVisitor, code, expected)
+
+    def test_excludes_docstring(self):
+        code = """
+        def bar(a):
+            \"\"\"
+            doing somethign!
+            \"\"\"
+            return a
+        """
+        verify_visitor(StringConcatToFStringVisitor, code, [])
 
     def test_string_concat_to_formatted(self):
         code = """

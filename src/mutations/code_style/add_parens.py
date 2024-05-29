@@ -5,6 +5,8 @@ from asttokens import ASTTokens
 
 from mutations import RegisteredTransformation, CRT
 
+from shared.ast_utils import get_docstring_ranges, is_node_within_docstring
+
 
 class ParensProcessor:
     def __init__(self, source_code, node_types=None):
@@ -16,6 +18,7 @@ class ParensProcessor:
         )
         self.atok = ASTTokens(source_code, parse=True)
         self.tree = self.atok.tree
+        self.docstring_ranges = get_docstring_ranges(self.tree)
 
     def add_redundant_parens(self, target_node):
         original_text = self.atok.get_text(target_node)
@@ -27,7 +30,7 @@ class ParensProcessor:
         nodes = []
 
         def find_nodes(node):
-            if isinstance(node, tuple(self.node_types)):
+            if isinstance(node, tuple(self.node_types)) and not is_node_within_docstring(node, self.docstring_ranges):
                 nodes.append(node)
             for child in ast.iter_child_nodes(node):
                 find_nodes(child)

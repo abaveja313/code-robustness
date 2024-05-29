@@ -1,8 +1,39 @@
 import ast
+from typing import List, Tuple
 
 from loguru import logger
 
 import ast
+
+
+def get_docstring_ranges(tree: ast.AST) -> List[Tuple[int, int]]:
+    docstring_ranges = []
+
+    def visit_node(node):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
+            docstring = ast.get_docstring(node, clean=False)
+            if docstring:
+                start_lineno = node.body[0].lineno
+                end_lineno = start_lineno + docstring.count('\n')
+                docstring_ranges.append((start_lineno, end_lineno))
+        for child in ast.iter_child_nodes(node):
+            visit_node(child)
+
+    visit_node(tree)
+    return docstring_ranges
+
+
+def is_node_within_docstring(node: ast.AST, docstring_ranges: List[Tuple[int, int]]) -> bool:
+    if hasattr(node, 'lineno') and is_line_within_docstring(node.lineno, docstring_ranges):
+        return True
+    return False
+
+
+def is_line_within_docstring(line: int, docstring_ranges: List[Tuple[int, int]]) -> bool:
+    for start_lineno, end_lineno in docstring_ranges:
+        if start_lineno <= line <= end_lineno:
+            return True
+    return False
 
 
 def get_function_declaration_line(source_code: str, function_name: str):
@@ -21,7 +52,7 @@ def get_function_declaration_line(source_code: str, function_name: str):
 
                 if node.args.defaults:
                     defaults = [None] * (
-                        len(node.args.args) - len(node.args.defaults)
+                            len(node.args.args) - len(node.args.defaults)
                     ) + node.args.defaults
                     for i, default in enumerate(defaults):
                         if default is not None:
@@ -31,7 +62,7 @@ def get_function_declaration_line(source_code: str, function_name: str):
                     params.append(f"*{node.args.vararg.arg}")
 
                 for kwonlyarg, kw_default in zip(
-                    node.args.kwonlyargs, node.args.kw_defaults
+                        node.args.kwonlyargs, node.args.kw_defaults
                 ):
                     if kw_default is not None:
                         params.append(
@@ -97,9 +128,9 @@ def is_unary_assign(node):
 
 def get_constant_num(node):
     if (
-        isinstance(node, ast.UnaryOp)
-        and isinstance(node.op, ast.USub)
-        and isinstance(node.operand, ast.Constant)
+            isinstance(node, ast.UnaryOp)
+            and isinstance(node.op, ast.USub)
+            and isinstance(node.operand, ast.Constant)
     ):
         return ast.Constant(value=-1 * node.operand.value)
     return node

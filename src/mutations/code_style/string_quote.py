@@ -4,6 +4,7 @@ from typing import Callable
 from asttokens import ASTTokens
 
 from mutations import RegisteredTransformation, CRT
+from shared.ast_utils import get_docstring_ranges, is_node_within_docstring
 
 
 class StringQuoteTransformer:
@@ -13,6 +14,7 @@ class StringQuoteTransformer:
         self.source_code = source_code
         self.atok = ASTTokens(source_code, parse=True)
         self.tree = self.atok.tree
+        self.docstring_lines = get_docstring_ranges(self.tree)
 
     def replace_quotes(self, target_node):
         original_text = self.atok.get_text(target_node)
@@ -25,9 +27,10 @@ class StringQuoteTransformer:
 
         def find_nodes(node):
             if (
-                isinstance(node, ast.Constant)
-                and isinstance(node.value, str)
-                and f"{self.old}" in self.atok.get_text(node)
+                    isinstance(node, ast.Constant)
+                    and isinstance(node.value, str)
+                    and f"{self.old}" in self.atok.get_text(node)
+                    and not is_node_within_docstring(node, self.docstring_lines)
             ):
                 nodes.append(node)
             for child in ast.iter_child_nodes(node):

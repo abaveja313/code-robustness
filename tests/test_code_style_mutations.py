@@ -38,6 +38,35 @@ class TestAddParens:
         ]
         verify_transformation(AddParensTransformer, code, expected)
 
+    def test_add_parens_docstring(self):
+        code = """
+        def foo():
+            '''
+            I am a docstring
+            
+            assert 1 + 2 + 3 == 6
+            '''
+            pass
+        """
+        verify_transformation(AddParensTransformer, code, [])
+
+    def test_add_parens_docstring_nested(self):
+        code = """
+        def foo():
+            '''
+            I am a docstring
+
+            assert 1 + 2 + 3 == 6
+            '''
+            def bar():
+                \"\"\"
+                a = True + False
+                \"\"\"
+                return True
+            pass
+        """
+        verify_transformation(AddParensTransformer, code, [])
+
     def test_add_parens_with_bools(self):
         code = """
         a = not (a or b)
@@ -85,8 +114,8 @@ class TestCommentsBlock:
         expected = [
             """
             def factorial(n):
-                # I am a comment
-                # I am a comment
+                # I am a block comment
+                # I am a block comment
                 if n == 0:
                     return 1
                 return n * factorial(n - 1)
@@ -94,8 +123,8 @@ class TestCommentsBlock:
             """
             def factorial(n):
                 if n == 0:            
-                    # I am a comment
-                    # I am a comment
+                    # I am a block comment
+                    # I am a block comment
                     return 1
                 return n * factorial(n - 1)
             """,
@@ -103,9 +132,36 @@ class TestCommentsBlock:
             def factorial(n):
                 if n == 0:            
                     return 1
-                # I am a comment
-                # I am a comment
+                # I am a block comment
+                # I am a block comment
                 return n * factorial(n - 1)
+            """
+        ]
+        verify_transformation(BlockCommentsTransformer, code, expected)
+
+    def test_block_comments_docstring(self):
+        code = '''
+        def factorial(n):
+            """
+            assert factorial(0) == 1 + 0
+            """
+            def inner(n):
+                """
+                assert inner(0) == 1 + 0
+                """
+        '''
+        expected = [
+            """
+            def factorial(n):
+                \"\"\"
+                assert factorial(0) == 1 + 0
+                \"\"\"
+                # I am a block comment
+                # I am a block comment
+                def inner(n):
+                    \"\"\"
+                    assert inner(0) == 1 + 0
+                    \"\"\"
             """
         ]
         verify_transformation(BlockCommentsTransformer, code, expected)
@@ -172,6 +228,15 @@ class TestCommentsInline:
             """
         ]
         verify_transformation(InlineCommentsTransformer, code, expected)
+
+    def test_inline_comments_docstring(self):
+        code = '''
+        def doSomething(a, b):
+            """
+            assert doSomething(1, 2) == 3
+            """
+        '''
+        verify_transformation(InlineCommentsTransformer, code, [])
 
 
 class TestExpandAugmentedAssign:
@@ -411,6 +476,18 @@ class TestMergeStatements:
         expected = []
         verify_transformation(MergeStatementsTransformer, code, expected)
 
+    def test_merge_statements_docstring(self):
+        code = """
+        def foo():
+            '''
+            a = 1
+            b = 2
+            print(a + b)
+            '''
+            pass
+            """
+        verify_transformation(MergeStatementsTransformer, code, [])
+
 
 class TestPrintInjector:
     def test_print_injector_simple(self):
@@ -475,6 +552,16 @@ class TestStringQuote:
             """
         ]
         verify_transformation(StringQuoteSingleTransformer, code, expected)
+
+    def test_string_quote_docstring(self):
+        code = """
+        def foo():
+            '''
+            a = ""
+            '''
+            pass
+        """
+        verify_transformation(StringQuoteSingleTransformer, code, [])
 
     def test_string_quote_double(self):
         code = """

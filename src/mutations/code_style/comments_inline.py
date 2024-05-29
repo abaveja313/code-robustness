@@ -1,5 +1,9 @@
 from typing import Callable
+
+import asttokens
 from mutations import RegisteredTransformation, CRT
+
+from shared.ast_utils import is_line_within_docstring, get_docstring_ranges
 
 
 class InlineCommentsTransformer(RegisteredTransformation, category=CRT.code_style):
@@ -16,12 +20,17 @@ class InlineCommentsTransformer(RegisteredTransformation, category=CRT.code_styl
         results = []
         lines = code.split("\n")
 
+        tree = asttokens.ASTTokens(code, parse=True).tree
+        docstring_lines = get_docstring_ranges(tree)
+
         # Add inline comment to each indented line
-        for idx, line in enumerate(lines):
+        for i, line in enumerate(lines, start=1):
+            if is_line_within_docstring(i, docstring_lines):
+                continue
             if line.strip() == "" or not line.startswith(" "):
                 continue  # Skip empty lines and non-indented lines
             copied = lines.copy()
-            copied[idx] = line.rstrip() + f"  # {self.comment}"
+            copied[i - 1] = line.rstrip() + f"  # {self.comment}"
             results.append("\n".join(copied))
 
         return results

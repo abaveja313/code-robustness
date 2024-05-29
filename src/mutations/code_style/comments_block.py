@@ -1,6 +1,6 @@
-import textwrap
-
+from asttokens import asttokens
 from mutations import RegisteredTransformation, CRT
+from shared.ast_utils import get_docstring_ranges, is_line_within_docstring
 
 
 class BlockCommentsTransformer(RegisteredTransformation, category=CRT.code_style):
@@ -16,8 +16,12 @@ class BlockCommentsTransformer(RegisteredTransformation, category=CRT.code_style
     def transform(self, code: str):
         new_lines = code.split("\n")
         results = []
+        tree = asttokens.ASTTokens(code, parse=True).tree
+        docstring_lines = get_docstring_ranges(tree)
 
-        for i, line in enumerate(new_lines):
+        for i, line in enumerate(new_lines, start=1):
+            if is_line_within_docstring(i, docstring_lines):
+                continue
             if len(line.strip()) == 0:
                 continue  # Skip empty lines
             indentation_level = len(line) - len(line.lstrip())
@@ -26,7 +30,7 @@ class BlockCommentsTransformer(RegisteredTransformation, category=CRT.code_style
                 indented_comment = [
                     " " * indentation_level + cmt for cmt in self.comment.split("\n")
                 ]
-                copied.insert(i, "\n".join(indented_comment))
+                copied.insert(i - 1, "\n".join(indented_comment))
                 results.append("\n".join(copied))
 
         return results

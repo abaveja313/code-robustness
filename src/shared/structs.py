@@ -2,9 +2,6 @@ from dataclasses import dataclass, field
 from itertools import chain
 from typing import Any, List
 
-from inference.processors import Processors
-from shared.metrics import average_levenshtein_distance
-
 
 @dataclass
 class Solution:
@@ -12,6 +9,7 @@ class Solution:
     probs: float
 
     def post_process(self):
+        from inference.processors import Processors
         self.code = Processors.postprocess_sequence(self.code)
 
 
@@ -88,6 +86,7 @@ class BenchmarkResult:
         self.examples[solution_type][sol_class].append(example)
 
     def compute_metrics(self):
+        from shared.metrics import average_levenshtein_distance
         average_levenshtein = average_levenshtein_distance(self.examples['passed']['original'],
                                                            self.examples['passed']['mutated'])
         self.average_levenshtein = average_levenshtein

@@ -184,26 +184,3 @@ def one_by_one(key: str, obj: object):
     for idx, value in enumerate(getattr(obj, key)):
         new_obj = copy.deepcopy(obj)
         yield new_obj, getattr(new_obj, key)[idx]
-
-
-postprocessors = (
-    normalize_indentation,
-    lambda c: remove_comments_and_docstrings(c, remove_docstrings=True),
-    remove_pass
-)
-
-
-def postprocess(programs: list[str], result: BenchmarkResult, mutated: bool = False) -> list[str]:
-    for postprocessor in postprocessors:
-        for idx, program in enumerate(programs):
-            try:
-                programs[idx] = postprocessor(program)
-            except Exception:
-                if mutated:
-                    result.bad_post_process_mutated_examples.append(programs[idx])
-                else:
-                    result.bad_post_process_original_examples.append(programs[idx])
-                logger.exception(
-                    f"Encountered error while postprocessing:\n{programs[idx]}!"
-                )
-    return programs
