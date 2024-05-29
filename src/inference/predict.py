@@ -7,6 +7,7 @@ from vllm import SamplingParams, LLM
 
 from inference.dataset_manager import DatasetManager, Dataset
 from inference.processors import Processors, PostprocessingException
+from shared.program_utils import program_concat
 from shared.structs import MutatedStem, Solution, BatchSolution
 
 
@@ -155,7 +156,7 @@ class InferenceEngine:
             solutions = []
             for sequence in sequences[problem_id]:
                 solution = Solution(
-                    code=problem['formatted_prompt'] + '\n' + sequence.text,
+                    code=program_concat(problem['formatted_prompt'], sequence.text),
                     probs=sequence.cumulative_logprob
                 )
                 try:
@@ -180,7 +181,10 @@ class InferenceEngine:
         for stem_name, stem_val in stem.as_tuple():
             solutions = []
             for sequence in sequences[stem_name]:
-                solution = Solution(code=stem_val + '\n' +  sequence.text, probs=sequence.cumulative_logprob)
+                solution = Solution(
+                    code=program_concat(stem_val, sequence.text),
+                    probs=sequence.cumulative_logprob
+                )
                 try:
                     solution.post_process()
                     solutions.append(solution)

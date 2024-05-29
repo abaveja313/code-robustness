@@ -141,7 +141,6 @@ if __name__ == "__main__":
         dataset_name="mbpp",
         model_name="deepseek-ai/deepseek-coder-1.3b-instruct",
         model_direct_completion=False,
-        model_dtype="half",
         model_temp=0.5,
         canonical_batch_size=200,
         seed_problems_k=10,

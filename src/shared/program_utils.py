@@ -1,13 +1,31 @@
-import ast
-import copy
 import io
 import textwrap
 import tokenize
 
 IDENT = " " * 4
+MUTATED_COMMENT_PREFIX = "# I am a"
+
+
+def program_concat(stem: str, new_code: str) -> str:
+    new_code = new_code.lstrip('\n')
+    if stem.endswith('\n'):
+        return stem + new_code
+    return stem + '\n' + new_code
 
 
 def remove_pass(prompt: str) -> str:
+    """
+    Remove `pass` statement from the end of the prompt.
+
+    Since AST transformations have to produce valid code, we have to place
+    `pass` inside blocks whenever we mutate statement blocks. Before inference we want
+    to remove it.
+
+    Example Input:
+        while True:
+            pass # must be here otherwise code is invalid
+
+    """
     prompt_lines = prompt.strip().splitlines()
     if len(prompt_lines) > 0 and prompt_lines[-1].strip() == "pass":
         return "\n".join(prompt_lines[:-1])
@@ -71,8 +89,10 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
             last_col = 0
         if start_col > last_col:
             out += " " * (start_col - last_col)
+
+        # We don't want to remove these comments because they are placed as part of mutations
         if token_type == tokenize.COMMENT:
-            if token_string.startswith("# I am a "):
+            if token_string.startswith(MUTATED_COMMENT_PREFIX):
                 out += token_string
         elif (
                 token_type == tokenize.STRING
@@ -85,6 +105,7 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
         prev_toktype = token_type
         last_col = end_col
         last_lineno = end_line
+
     cleaned_lines = [line.rstrip() for line in out.splitlines() if line.strip()]
     if cleaned_lines:
         base_indentation = len(cleaned_lines[0]) - len(cleaned_lines[0].lstrip())
@@ -95,87 +116,49 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
     return "\n".join(cleaned_lines)
 
 
-def extract_function_parts(code: str, function_name: str = None):
-    parsed_code = ast.parse(code)
-    func_node = None
-    for node in parsed_code.body:
-        if isinstance(node, ast.FunctionDef) and (
-                function_name is None or node.name == function_name
-        ):
-            func_node = node
+def parse_stem(old_code: str, new_code: str):
+    old_lines = old_code.splitlines()
+    new_lines = new_code.splitlines()
+
+    old_index = 0
+    new_index = 0
+
+    # Skip matching lines at the beginning
+    while old_index < len(old_lines) and new_index < len(new_lines):
+        old_line = old_lines[old_index].strip()
+        new_line = new_lines[new_index].strip()
+
+        # We don't care about extra newlines being inserted (though this shouldn't happen)
+        while old_line == '\n' and old_index < len(old_lines):
+            old_index += 1
+
+        while new_line == '\n' and new_index < len(new_lines):
+            new_index += 1
+
+        # Skip comments and docstrings
+        if old_line == new_line or old_line.startswith(('"""', "'''", "#")):
+            old_index += 1
+            new_index += 1
+        else:
             break
 
-    if func_node is None:
-        raise ValueError(f"Function '{function_name}' not found in the provided code.")
+    # Capture the function body from the new lines until the first difference
+    while new_index < len(new_lines) and (new_lines[new_index].strip() == "" or
+                                          new_lines[new_index].strip().startswith("#") or
+                                          new_lines[new_index].strip().startswith(('"""', "'''"))):
+        new_index += 1
+    while old_index < len(old_lines) and (old_lines[old_index].strip() == "" or
+                                          old_lines[old_index].strip().startswith("#") or
+                                          old_lines[old_index].strip().startswith(('"""', "'''"))):
+        old_index += 1
 
-    func_start_line = func_node.lineno - 1
-    func_end_line = func_node.end_lineno
-    func_code_lines = code.splitlines()
+    # Ensure capturing the last line if the loop ended due to different lines
+    if new_index < len(new_lines):
+        new_index += 1
+    if old_index < len(old_lines):
+        old_index += 1
 
-    func_declaration_line = func_code_lines[func_start_line].strip()
-    docstring = ast.get_docstring(func_node)
-    if docstring:
-        quoted_docstring = f'"""\n{docstring}\n"""'
-        indented_docstring = textwrap.indent(quoted_docstring, IDENT)
-    else:
-        indented_docstring = ""
+    new_func_split = "\n".join(new_lines[:new_index])
+    old_func_split = "\n".join(old_lines[:old_index])
 
-    func_body_with_comments = "\n".join(
-        func_code_lines[func_start_line + 1: func_end_line]
-    )
-    func_body = remove_comments_and_docstrings(
-        func_body_with_comments, remove_docstrings=True
-    )
-    func_body = f"\n{IDENT}".join(
-        func_body.splitlines()
-    )  # Correctly indent all lines of the body
-
-    function_parts = {
-        "declaration": func_declaration_line
-                       + ("\n" + indented_docstring if indented_docstring else ""),
-        "body": f"{IDENT}" + func_body.replace("\n\n", "\n"),  # Add initial indentation
-    }
-    return function_parts
-
-
-def parse_stem(old_code: str, new_code: str, function_name: str = None):
-    old_parts = extract_function_parts(old_code, function_name=function_name)
-    new_parts = extract_function_parts(new_code, function_name=function_name)
-    old_lines = old_parts["body"].splitlines()
-    new_lines = new_parts["body"].splitlines()
-
-    for i, (old_line, new_line) in enumerate(zip(old_lines, new_lines)):
-        if old_line != new_line:
-            break
-    else:
-        return (
-            f"{new_parts['declaration']}\n{new_parts['body']}",
-            f"{old_parts['declaration']}\n{old_parts['body']}",
-        )
-
-    if (
-            i == len(old_lines) - 1
-            and i == len(new_lines) - 1
-            and old_lines[i] == new_lines[i]
-    ):
-        return (
-            f"{new_parts['declaration']}\n{new_parts['body']}",
-            f"{old_parts['declaration']}\n{old_parts['body']}",
-        )
-
-    new_func_split = "\n".join(new_lines[: i + 1])
-    old_func_split = "\n".join(old_lines[: i + 1])
-
-    return (
-        f"{new_parts['declaration']}\n{new_func_split}",
-        f"{old_parts['declaration']}\n{old_func_split}",
-    )
-
-
-def one_by_one(key: str, obj: object):
-    if not hasattr(obj, key):
-        raise ValueError(f"Object {obj} has no field {key}")
-
-    for idx, value in enumerate(getattr(obj, key)):
-        new_obj = copy.deepcopy(obj)
-        yield new_obj, getattr(new_obj, key)[idx]
+    return new_func_split, old_func_split

@@ -1,5 +1,5 @@
 import pytest
-from shared.program_utils import remove_comments_and_docstrings, extract_function_parts, parse_stem
+from shared.program_utils import remove_comments_and_docstrings, parse_stem
 
 
 def test_remove_comments():
@@ -65,137 +65,392 @@ def foo():
     assert remove_comments_and_docstrings(source) == expected
 
 
-def test_extract_function_parts_basic():
-    code = '''
-def foo():
-    return 42
-'''
-    expected = {
-        "declaration": "def foo():",
-        "body": "    return 42"
-    }
-    assert extract_function_parts(code, "foo") == expected
-
-
-def test_extract_function_parts_with_docstring():
-    code = '''
-def foo():
+def test_with_comments_and_docstrings():
+    old_code = '''
+def example_function():
     """
-    This is a docstring
+    This is a docstring.
     """
-    return 42
-'''
-    expected = {
-        "declaration": 'def foo():\n    """\n    This is a docstring\n    """',
-        "body": "    return 42"
-    }
-    assert extract_function_parts(code, "foo") == expected
-
-
-def test_extract_function_parts_with_comments():
-    code = '''
-def foo():
+    a = 1
     # This is a comment
-    return 42  # Trailing comment
-'''
-    expected = {
-        "declaration": "def foo():",
-        "body": "    return 42"
-    }
-    assert extract_function_parts(code, "foo") == expected
-
-
-def test_extract_function_parts_multiple_functions():
-    code = '''
-def foo():
-    return 42
-
-def bar():
-    return 84
-'''
-    expected_foo = {
-        "declaration": "def foo():",
-        "body": "    return 42"
-    }
-    expected_bar = {
-        "declaration": "def bar():",
-        "body": "    return 84"
-    }
-    assert extract_function_parts(code, "foo") == expected_foo
-    assert extract_function_parts(code, "bar") == expected_bar
-
-
-def test_function_not_found():
-    code = '''
-def foo():
-    return 42
-'''
-    with pytest.raises(ValueError, match="Function 'bar' not found in the provided code."):
-        extract_function_parts(code, "bar")
-
-
-def test_parse_stem_identical_functions():
-    old_code = '''
-def foo():
-    return 42
+    b = 2
+    c = 3
 '''
     new_code = '''
-def foo():
-    return 42
-'''
-    expected = (
-        'def foo():\n    return 42',
-        'def foo():\n    return 42'
-    )
-    assert parse_stem(old_code, new_code, "foo") == expected
-
-
-def test_parse_stem_different_functions():
-    old_code = '''
-def foo():
-    return 42
-'''
-    new_code = '''
-def foo():
-    return 84
-'''
-    expected = (
-        'def foo():\n    return 84',
-        'def foo():\n    return 42'
-    )
-    assert parse_stem(old_code, new_code, "foo") == expected
-
-
-def test_parse_stem_partial_match():
-    old_code = '''
-def foo():
+def example_function():
+    """
+    This is a docstring.
+    """
     a = 1
-    return 42
+    # This is a comment
+    b = 22
+    c = 3
 '''
-    new_code = '''
-def foo():
+    expected_new = '''
+def example_function():
+    """
+    This is a docstring.
+    """
     a = 1
-    return 84
+    # This is a comment
+    b = 22
 '''
-    expected = (
-        'def foo():\n    a = 1\n    return 84',
-        'def foo():\n    a = 1\n    return 42'
-    )
-    assert parse_stem(old_code, new_code, "foo") == expected
+    expected_old = '''
+def example_function():
+    """
+    This is a docstring.
+    """
+    a = 1
+    # This is a comment
+    b = 2
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test with comments and docstrings passed!")
 
 
-def test_parse_stem_function_not_found():
+def test_with_inline_comments():
     old_code = '''
-def foo():
-    return 42
+def another_function():
+    x = 10
+    y = 20  # Inline comment
+    z = 30
 '''
     new_code = '''
-def bar():
-    return 84
+def another_function():
+    x = 10
+    y = 200  # Inline comment
+    z = 30
 '''
-    with pytest.raises(ValueError, match="Function 'foo' not found in the provided code."):
-        parse_stem(old_code, new_code, "foo")
+    expected_new = '''
+def another_function():
+    x = 10
+    y = 200  # Inline comment
+'''
+    expected_old = '''
+def another_function():
+    x = 10
+    y = 20  # Inline comment
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test with inline comments passed!")
 
 
-if __name__ == "__main__":
-    pytest.main()
+def test_with_block_comments():
+    old_code = '''
+def function_with_block_comment():
+    x = 10
+    # Block comment
+    y = 20
+    z = 30
+'''
+    new_code = '''
+def function_with_block_comment():
+    x = 10
+    # Block comment
+    y = 200
+    z = 30
+'''
+    expected_new = '''
+def function_with_block_comment():
+    x = 10
+    # Block comment
+    y = 200
+'''
+    expected_old = '''
+def function_with_block_comment():
+    x = 10
+    # Block comment
+    y = 20
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test with block comments passed!")
+
+
+def test_without_comments_or_docstrings():
+    old_code = '''
+def simple_function():
+    def nested():
+        pass
+'''
+    new_code = '''
+def simple_function():
+    def new_nested():
+        pass
+    
+'''
+    expected_new = '''
+def simple_function():
+    def new_nested():
+'''
+    expected_old = '''
+def simple_function():
+    def nested():
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test without comments or docstrings passed!")
+
+
+def test_simple_code_differing_line():
+    old_code = '''
+def simple_function():
+    a = 1
+    b = 2
+    if a < b:
+        c = 3
+    else:
+        c = 4
+    return c
+'''
+    new_code = '''
+def simple_function():
+    a = 1
+    b = 2
+    if a > b:
+        c = 3
+    else:
+        c = 4
+    return c
+'''
+    expected_new = '''
+def simple_function():
+    a = 1
+    b = 2
+    if a > b:
+'''
+    expected_old = '''
+def simple_function():
+    a = 1
+    b = 2
+    if a < b:
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test simple code with differing line passed!")
+
+
+def test_complex_code_differing_line():
+    old_code = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    if a < b:
+        x *= 2
+    else:
+        x /= 2
+    return x
+'''
+    new_code = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    if a > b:
+        x *= 2
+    else:
+        x /= 2
+    return x
+'''
+    expected_new = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    if a > b:
+'''
+    expected_old = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    if a < b:
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test complex code with differing line passed!")
+
+
+def test_docstring_functions_same_docstring_different_lines():
+    old_code = '''
+def docstring_function():
+    """
+    This is a docstring.
+    """
+    a = 1
+    b = 2
+    return a + b
+'''
+    new_code = '''
+def docstring_function():
+    """
+    This is a docstring.
+    """
+    a = 1
+    b = 3
+    return a + b
+'''
+    expected_new = '''
+def docstring_function():
+    """
+    This is a docstring.
+    """
+    a = 1
+    b = 3
+'''
+    expected_old = '''
+def docstring_function():
+    """
+    This is a docstring.
+    """
+    a = 1
+    b = 2
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test with docstring functions, same docstring, but different lines passed!")
+
+
+def test_single_inline_comment():
+    old_code = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    x += b  # This is an inline comment
+    return x
+'''
+    new_code = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    x -= b  # This is an inline comment
+    return x
+'''
+    expected_new = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    x -= b  # This is an inline comment
+'''
+    expected_old = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    x += b  # This is an inline comment
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test single inline comment passed!")
+
+
+def test_single_block_comment():
+    old_code = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    # This is a block comment
+    x += b
+    return x
+'''
+    new_code = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    # This is a block comment
+    x -= b
+    return x
+'''
+    expected_new = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    # This is a block comment
+    x -= b
+'''
+    expected_old = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    # This is a block comment
+    x += b
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test single block comment passed!")
+
+
+def test_multiple_sequential_comments():
+    old_code = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    x += b
+    return x
+'''
+    new_code = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    # Comment 1
+    # Comment 3
+    x += b
+    return x
+'''
+    expected_new = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    # Comment 1
+    # Comment 3
+    x += b
+'''
+    expected_old = '''
+def complex_function(x):
+    a = 1
+    b = 2
+    for i in range(5):
+        x += i
+    x += b
+'''
+    result_new, result_old = parse_stem(old_code, new_code)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
+    print("Test multiple sequential comments passed!")
