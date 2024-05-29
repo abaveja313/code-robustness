@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
-from itertools import chain
-from typing import Any, List
+from typing import Any
 
 
 @dataclass
@@ -61,15 +60,7 @@ class BenchmarkResult:
     pass_at_mutated: dict[int, Any] = field(default_factory=dict)
     pass_at_ratio: dict[str, float] = field(default_factory=dict)
     average_levenshtein: float = None
-    examples: dict[str, dict[str, list[str]]] = field(default_factory=create_examples)
-    passed_original_examples: list[str] = field(default_factory=list, repr=False)
-    passed_mutated_examples: list[str] = field(default_factory=list, repr=False)
-    failed_original_examples: list[str] = field(default_factory=list, repr=False)
-    failed_mutated_examples: list[str] = field(default_factory=list, repr=False)
-    bad_syntax_original_examples: list[str] = field(default_factory=list, repr=False)
-    bad_syntax_mutated_examples: list[str] = field(default_factory=list, repr=False)
-    bad_post_process_original_examples: list[str] = field(default_factory=list, repr=False)
-    bad_post_process_mutated_examples: list[str] = field(default_factory=list, repr=False)
+    examples: dict[str, dict[str, list[str]]] = field(default_factory=create_examples, repr=False)
 
     def add_stem(self, stem: MutatedStem):
         self.original_prefix = stem.original_stem

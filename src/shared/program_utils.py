@@ -3,11 +3,6 @@ import copy
 import io
 import textwrap
 import tokenize
-from typing import List
-
-from loguru import logger
-
-from shared.structs import BenchmarkResult
 
 IDENT = " " * 4
 

@@ -1,5 +1,4 @@
 from shared.program_utils import remove_pass, remove_comments_and_docstrings, normalize_indentation
-from loguru import logger
 
 
 class PostprocessingException(Exception):
@@ -17,14 +16,14 @@ class Processors:
     @staticmethod
     def postprocess_sequence(sequence: str):
         transforms = (
-            lambda c: remove_comments_and_docstrings(c, remove_docstrings=True),
+            lambda c: remove_comments_and_docstrings(c, remove_docstrings=False),
             normalize_indentation,
         )
-        exceptions = []
+
         for transform in transforms:
             sequence = transform(sequence)
 
-        return sequence, exceptions
+        return sequence
 
     @staticmethod
     def split_sequences(sequences: list[str], sids: list[str], samples_per_sequence: int):

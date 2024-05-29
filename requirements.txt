@@ -9,3 +9,4 @@ asttokens~=2.4.1
 git+https://github.com/evalplus/evalplus.git@b297bb9#egg=evalplus
 radon==6.0.1
 loguru==0.7.2
+gcsfs==2024.5.0

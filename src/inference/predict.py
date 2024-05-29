@@ -1,6 +1,5 @@
-import dataclasses
 import os
-from typing import Any, List
+from typing import Any
 
 from loguru import logger
 from transformers import AutoTokenizer
@@ -48,7 +47,6 @@ class InferenceEngine:
             self.direct_completion = direct_completion
 
         self.llm = LLM(**model_kwargs)
-        self.sampling_args = SamplingParams(**sampling_params)
 
         self.dataset = dataset_manager
         self.eos = [
@@ -60,15 +58,19 @@ class InferenceEngine:
             "\nprint(",
         ]
         self.add_eos_for_task()
+        logger.info("Model EOS Terminators: {}", self.eos)
+
+        sampling_params['stop'] = self.eos
+        self.sampling_args = SamplingParams(**sampling_params)
 
     def add_eos_for_task(self):
         if self.direct_completion:
             if self.dataset.dataset_name == Dataset.HUMANEVAL:
                 self.eos += ["\ndef ", "\nclass ", "\nimport ", "\nfrom ", "\nassert "]
             elif self.dataset.dataset == Dataset.MBPP:
-                self.eos += ["\ndef ", "\nclass ", "\nimport ", "\nfrom ", "\nassert "]
+                self.eos += ["\nclass "]
         else:
-            self.eos += ["\n```\n", "```", "assert"]
+            self.eos += ["\n```\n", "```", "\nassert", ]
 
     def make_function_codegen_prompt(self, problem_id: str) -> str:
         definition = self.dataset.get_problem(problem_id)['formatted_prompt']
@@ -124,14 +126,16 @@ class InferenceEngine:
     def generate(self, prompts: list[str], num_samples: int):
         expanded_prompts = []
         for prompt in prompts:
-            expanded_prompts.append(prompt * num_samples)
+            expanded_prompts.extend([prompt] * num_samples)
 
         vllm_outputs = self.llm.generate(
             expanded_prompts,
             self.sampling_args,
             use_tqdm=False,
         )
-        return vllm_outputs
+
+        outputs = [output.outputs[0] for output in vllm_outputs]
+        return outputs
 
     def predict_solutions(self, problem_ids: list[str], num_samples: int = 200):
         if self.direct_completion:
@@ -139,9 +143,11 @@ class InferenceEngine:
         else:
             prompts = [self.make_function_codegen_prompt(problem_id) for problem_id in problem_ids]
 
-        vllm_outputs = self.generate(prompts, num_samples)
+        for prompt in prompts:
+            logger.debug("Prompt:\n{}", prompt)
 
-        sequences = Processors.split_sequences(vllm_outputs.outputs, problem_ids, num_samples)
+        vllm_outputs = self.generate(prompts, num_samples)
+        sequences = Processors.split_sequences(vllm_outputs, problem_ids, num_samples)
 
         post_processed, errors = {}, []
         for problem_id in sequences:
@@ -149,7 +155,7 @@ class InferenceEngine:
             solutions = []
             for sequence in sequences[problem_id]:
                 solution = Solution(
-                    code=problem['formatted_prompt'] + sequence.text,
+                    code=problem['formatted_prompt'] + '\n' + sequence.text,
                     probs=sequence.cumulative_logprob
                 )
                 try:
@@ -171,10 +177,10 @@ class InferenceEngine:
         sequences = Processors.split_sequences(vllm_outputs, ['original', 'mutated'], num_samples)
 
         post_processed, errors = {}, []
-        for stem_val, stem_name in stem.as_tuple():
+        for stem_name, stem_val in stem.as_tuple():
             solutions = []
             for sequence in sequences[stem_name]:
-                solution = Solution(code=stem_val + sequence.text, probs=sequence.cumulative_logprobs)
+                solution = Solution(code=stem_val + '\n' +  sequence.text, probs=sequence.cumulative_logprob)
                 try:
                     solution.post_process()
                     solutions.append(solution)

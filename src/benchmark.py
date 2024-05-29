@@ -36,7 +36,8 @@ def evaluate_problem(
         dataset_manager=dataset_manager,
     )
 
-    canonical_solution, log_probs = initializer.canonical_solution()
+    canonical_solution = initializer.canonical_solution()
+
     mutations: list[RegisteredTransformation] = MutationRegistry.get(
         exclude=exclude_mutation_types
     )
@@ -67,6 +68,7 @@ def evaluate_problem(
             )
             evaluator.compute_log_pass_ratio(stem, mutation_result)
             logger.info("Result: " + str(mutation_result))
+            mutation_result.compute_metrics()
             result_manager.add(mutation_result)
 
 
@@ -75,6 +77,7 @@ def benchmark(
         model_direct_completion: bool,
         model_temp: float,
         dataset_name: str,
+        model_max_new_tokens: int = 1024,
         model_dtype="bfloat16",
         model_top_p: float = 0.9,
         dataset_mini: bool = True,
@@ -107,7 +110,8 @@ def benchmark(
         dtype=model_dtype,
         trust_remote_code=False,
         temperature=model_temp,
-        top_p=model_top_p
+        top_p=model_top_p,
+        max_tokens=model_max_new_tokens
     )
 
     if seed_problems is None:

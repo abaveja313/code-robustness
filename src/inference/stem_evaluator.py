@@ -8,7 +8,6 @@ from loguru import logger
 
 from inference.dataset_manager import DatasetManager
 from inference.predict import InferenceEngine
-from inference.processors import PostprocessingException
 from shared.metrics import pass_at_k
 from shared.structs import BenchmarkResult, SolutionType
 from shared.structs import MutatedStem

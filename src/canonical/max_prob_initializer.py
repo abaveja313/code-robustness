@@ -41,7 +41,7 @@ class MaxProbInitializer:
         self.passing_threshold = passing_threshold
         self.num_samples = num_samples
         self.min_correct_samples = min_correct_samples
-        self.cache_dir = "cache"
+        self.cache_dir = ".cache"
 
     def _canonical_solution(self):
         logger.info(f"Finding Canonical Solution for {self.problem_id}")
@@ -50,6 +50,7 @@ class MaxProbInitializer:
         failed_stats = []
 
         for solution in tqdm.tqdm(batch.solutions, desc="Evaluating Sequences"):
+            logger.info("Checking Correctness of Solution:\n{}", solution.code)
             eval_results = check_correctness(
                 dataset=self.dataset_manager.dataset,
                 completion_id=time.time_ns(),
@@ -82,7 +83,7 @@ class MaxProbInitializer:
         self._print_failure_stats(failed_stats)
 
         canonical_solution = max(passing_solutions, key=lambda sol: sol.probs)
-        logger.info(f"Max Probability Solution: {canonical_solution.code}")
+        logger.info(f"Max Probability Solution (Probs={canonical_solution.probs}):\n{canonical_solution.code}")
 
         return canonical_solution.code
 
@@ -93,10 +94,11 @@ class MaxProbInitializer:
         with tqdm.tqdm(total=self.num_samples, desc="Generating sequences") as pbar:
             while remaining > 0:
                 to_gen = min(self.batch_size, remaining)
-                samples = self.inference_engine.predict_solutions(
+                samples, errors = self.inference_engine.predict_solutions(
                     problem_ids=[self.problem_id],
                     num_samples=self.batch_size
-                )[0].outputs
+                )
+                logger.warning("Found {} errors", len(errors))
                 batch_solution.add(samples[self.problem_id])
                 pbar.update(to_gen)
                 remaining -= to_gen
@@ -110,10 +112,7 @@ class MaxProbInitializer:
         if os.path.exists(cache_file):
             logger.info(f"Loading cached centroid solution for task {self.problem_id}")
             canonical = joblib.load(cache_file)
-            logger.info(
-                f"Canonical Solution Probability: {np.exp(canonical[1])} (logprob: {canonical[1]})"
-            )
-            logger.info(f"Canonical Solution: {canonical[0]}")
+            logger.info(f"Canonical Solution:\n{canonical}")
             return canonical
 
         new_solution = self._canonical_solution()
