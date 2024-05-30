@@ -1,5 +1,7 @@
 import os
 from itertools import chain
+import random
+import sys
 
 import tqdm
 from loguru import logger
@@ -15,6 +17,10 @@ from mutations.registry import MutationRegistry
 from shared.gcs_storage_manager import GCSResultStorageManager
 from shared.structs import MutatedStem, BenchmarkResult
 
+# Configure the console logger
+logger.add(sys.stdout, level="INFO")
+logger.add("output.log", level="INFO")
+
 
 def evaluate_problem(
         inference_engine: InferenceEngine,
@@ -27,6 +33,11 @@ def evaluate_problem(
         result_manager: GCSResultStorageManager,
         exclude_mutation_types: list[CRT] = None,
 ):
+    log_file = f"{problem_id}.log"
+
+    # Adding a unique file handler for each problem_id
+    logger.add(log_file, rotation="10 MB", compression="zip", level="DEBUG")
+
     logger.info("Finding canonical solution...")
     initializer = MaxProbInitializer(
         inference_engine=inference_engine,
@@ -71,6 +82,9 @@ def evaluate_problem(
             logger.info("Result: " + str(mutation_result))
             mutation_result.compute_metrics()
             result_manager.add(mutation_result)
+
+    # Remove the handler after processing the problem
+    logger.remove()
 
 
 def benchmark(
@@ -121,6 +135,7 @@ def benchmark(
         seed_problems = dataset_manager.find_seeds(
             k=seed_problems_k, metric=seed_problem_metric
         )
+        random.shuffle(seed_problems)
 
     for seed_problem in seed_problems:
         if seed_problem in completed:

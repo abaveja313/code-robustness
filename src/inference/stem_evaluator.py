@@ -74,6 +74,7 @@ class StemEvaluator:
         return pass_at_ratios
 
     def check_correctness_wrapper(self, solution, result_queue):
+        logger.debug("Checking correctness for solution:\n{}", solution)
         eval_results = check_correctness(
             dataset=self.dataset_manager.dataset_name,
             completion_id=time.time_ns(),
@@ -105,13 +106,14 @@ class StemEvaluator:
                 total = eval_results["base"][1] + eval_results["plus"][1]
                 passed = [i for i in total if i == 1]
                 if len(total) == 0:
-                    logger.error("Solution {} is syntactically incorrect:\n", solution)
+                    logger.error("Solution is syntactically incorrect:\n{}", solution)
                     result.add_example(solution, SolutionType.BAD_SYNTAX, mutated)
                     continue
                 if not len(total) == 0 and len(total) == len(passed):
                     num_passed += 1
                     result.add_example(solution, SolutionType.PASSED, mutated)
                 else:
+                    logger.warning("Solution failed:\n{}", solution)
                     result.add_example(solution, SolutionType.FAILED, mutated)
 
         pass_at = {}

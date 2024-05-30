@@ -175,6 +175,9 @@ class InferenceEngine:
         if not self.direct_completion:
             prompts = [self.make_stem_completion_prompt(s) for s in prompts]
 
+        for prompt in prompts:
+            logger.debug("Prompt:\n{}", prompt)
+
         vllm_outputs = self.generate(prompts, num_samples)
         sequences = Processors.split_sequences(vllm_outputs, ['original', 'mutated'], num_samples)
 

@@ -50,7 +50,7 @@ class MaxProbInitializer:
         failed_stats = []
 
         for solution in tqdm.tqdm(batch.solutions, desc="Evaluating Sequences"):
-            logger.info("Checking Correctness of Solution:\n{}", solution.code)
+            logger.debug("Checking Correctness of Solution:\n{}", solution.code)
             eval_results = check_correctness(
                 dataset=self.dataset_manager.dataset,
                 completion_id=time.time_ns(),
@@ -110,7 +110,7 @@ class MaxProbInitializer:
             self.cache_dir, f'{self.problem_id.replace("/", "_")}.pkl'
         )
         if os.path.exists(cache_file):
-            logger.info(f"Loading cached centroid solution for task {self.problem_id}")
+            logger.debug(f"Loading cached centroid solution for task {self.problem_id}")
             canonical = joblib.load(cache_file)
             logger.info(f"Canonical Solution:\n{canonical}")
             return canonical
