@@ -18,6 +18,7 @@ class Processors:
     @staticmethod
     def postprocess_sequence(sequence: str):
         transforms = (
+            lambda code: code.rstrip('\n'),
             lambda c: remove_comments_and_docstrings(c, remove_docstrings=False),
             lambda code: black.format_str(
                 code,

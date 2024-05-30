@@ -26,7 +26,12 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
         for m in mutated:
             post_processed_original = Processors.postprocess_sequence(original)
             post_processed_mutated = Processors.postprocess_sequence(m)
-            new_stem, old_stem = parse_stem(post_processed_original, post_processed_mutated)
+            parsed = parse_stem(post_processed_original, post_processed_mutated)
+            if not parsed:
+                logger.warning("Skipping mutation as it had no effect")
+                continue
+
+            old_stem, new_stem = parsed
             stem = MutatedStem(original_stem=old_stem, mutated_stem=new_stem)
             results.append(stem)
         return results

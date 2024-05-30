@@ -119,6 +119,9 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
 def parse_stem(old_code: str, new_code: str):
     old_lines = old_code.splitlines()
     new_lines = new_code.splitlines()
+    if old_lines == new_lines:
+        return
+
     # old_lines = old_code.replace('\n\n', '\n').splitlines()
     # new_lines = new_code.replace('\n\n', '\n').splitlines()
 

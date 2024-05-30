@@ -94,13 +94,13 @@ class StemEvaluator:
             return result_queue.get()
 
         num_passed = 0
-        with ThreadPoolExecutor(max_workers=2 * os.cpu_count()) as executor:
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = [executor.submit(check_correctness_wrapper, solution) for solution in solutions]
 
             for i, future in enumerate(as_completed(futures), start=1):
                 eval_results = future.result()
                 solution = eval_results.pop("solution")
-                logger.debug("{} Eval Results: {}", desc, eval_results)
+                # logger.debug("{} Eval Results: {}", desc, eval_results)
 
                 total = eval_results["base"][1] + eval_results["plus"][1]
                 passed = [i for i in total if i == 1]

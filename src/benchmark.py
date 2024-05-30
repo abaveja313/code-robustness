@@ -5,6 +5,7 @@ import tqdm
 from loguru import logger
 
 from canonical import MaxProbInitializer
+from canonical.max_prob_initializer import NoPassingSolutionException
 from inference.dataset_manager import DatasetManager
 
 from inference.predict import InferenceEngine
@@ -71,7 +72,7 @@ def evaluate_problem(
             mutation_result.compute_metrics()
             result_manager.add(mutation_result)
 
-l
+
 def benchmark(
         model_name: str,
         model_direct_completion: bool,
@@ -92,6 +93,7 @@ def benchmark(
         exclude_mutation_types: list[CRT] = None,
         gcs_bucket_name: str = "amrit-research-samples",
         gcs_project_name: str = "research",
+        completed: tuple[str, ...] = ('Mbpp/100',)
 ):
     result_manager = GCSResultStorageManager(
         bucket_name=gcs_bucket_name,
@@ -121,18 +123,25 @@ def benchmark(
         )
 
     for seed_problem in seed_problems:
+        if seed_problem in completed:
+            logger.info(f"Skipping problem {seed_problem} as it is already completed")
+            continue
+
         logger.info(f"Evaluating problem: {seed_problem}")
-        evaluate_problem(
-            inference_engine=inference_engine,
-            problem_id=seed_problem,
-            dataset_manager=dataset_manager,
-            canonical_samples=canonical_samples,
-            canonical_batch_size=canonical_batch_size,
-            scoring_samples=scoring_samples,
-            min_correct_samples=min_correct_samples,
-            exclude_mutation_types=exclude_mutation_types,
-            result_manager=result_manager,
-        )
+        try:
+            evaluate_problem(
+                inference_engine=inference_engine,
+                problem_id=seed_problem,
+                dataset_manager=dataset_manager,
+                canonical_samples=canonical_samples,
+                canonical_batch_size=canonical_batch_size,
+                scoring_samples=scoring_samples,
+                min_correct_samples=min_correct_samples,
+                exclude_mutation_types=exclude_mutation_types,
+                result_manager=result_manager,
+            )
+        except NoPassingSolutionException:
+            logger.exception(f"Unable to find passing solutions for problem {seed_problem}")
 
 
 if __name__ == "__main__":
@@ -143,8 +152,9 @@ if __name__ == "__main__":
         model_direct_completion=False,
         model_temp=0.5,
         canonical_batch_size=200,
-        seed_problems_k=10,
-        seed_problem_metric="cyclomatic_complexity",
+        seed_problems_k=30,
+        seed_problem_metric="halstead_volume",
         dataset_mini=False,
         dataset_noextreme=True,
+        completed=('Mbpp/100',)
     )

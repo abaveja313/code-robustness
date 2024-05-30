@@ -71,7 +71,7 @@ class InferenceEngine:
             elif self.dataset.dataset == Dataset.MBPP:
                 self.eos += ["\nclass "]
         else:
-            self.eos += ["\n```\n", "```", "\nassert", ]
+            self.eos += ["\n```\n", "```", "\nassert", "assert"]
 
     def make_function_codegen_prompt(self, problem_id: str) -> str:
         definition = self.dataset.get_problem(problem_id)['formatted_prompt']
@@ -102,7 +102,8 @@ class InferenceEngine:
         query = (
             "Complete the rest of the below function such that it is self-contained and passes the "
             "corresponding tests. Write your code in a markdown code block, ending your response with ```. "
-            "Don't include any testcases.\n\n"
+            "The function does not execute any tests of its logic. Don't include any testcases or evaluate your "
+            "response.\n\n"
             "```python\n"
             f"{stem.strip()}\n"
             "```"
