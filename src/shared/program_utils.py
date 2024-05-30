@@ -168,4 +168,4 @@ def parse_stem(old_code: str, new_code: str):
     new_func_split = "\n".join(new_lines[:new_index])
     old_func_split = "\n".join(old_lines[:old_index])
 
-    return new_func_split, old_func_split
+    return old_func_split, new_func_split

@@ -93,7 +93,7 @@ def benchmark(
         exclude_mutation_types: list[CRT] = None,
         gcs_bucket_name: str = "amrit-research-samples",
         gcs_project_name: str = "research",
-        completed: tuple[str, ...] = ('Mbpp/100',)
+        completed: tuple[str, ...] = ()
 ):
     result_manager = GCSResultStorageManager(
         bucket_name=gcs_bucket_name,
@@ -150,11 +150,10 @@ if __name__ == "__main__":
         dataset_name="mbpp",
         model_name="deepseek-ai/deepseek-coder-1.3b-instruct",
         model_direct_completion=False,
-        model_temp=0.5,
+        model_temp=0.4,
         canonical_batch_size=200,
-        seed_problems_k=30,
-        seed_problem_metric="halstead_volume",
+        seed_problems_k=50,
+        seed_problem_metric="cyclomatic_complexity",
         dataset_mini=False,
-        dataset_noextreme=True,
-        completed=('Mbpp/100',)
+        dataset_noextreme=True
     )

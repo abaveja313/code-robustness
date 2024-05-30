@@ -54,32 +54,3 @@ class AddParensTransformer(RegisteredTransformation, category=CRT.code_style):
 
         return process
 
-source = """
-def magic_square_test(my_matrix):
-    \"\"\"
-    Write a function to calculate whether the matrix is a magic square.
-    assert magic_square_test([[7, 12, 1, 14], [2, 13, 8, 11], [16, 3, 10, 5], [9, 6, 15, 4]])==True
-    \"\"\"
-    magic_constant = sum(my_matrix[0])
-    for row in my_matrix:
-        if sum(row) != magic_constant:
-            return False
-    for i in range(len(my_matrix)):
-        column_sum = sum(my_matrix[j][i] for j in range(len(my_matrix)))
-        if column_sum != magic_constant:
-            return False
-    diagonal_sum1 = sum(my_matrix[i][i] for i in range(len(my_matrix)))
-    diagonal_sum2 = sum(my_matrix[i][len(my_matrix) - i - 1] for i in range(len(my_matrix)))
-    if diagonal_sum1 != magic_constant or diagonal_sum2 != magic_constant:
-        return False
-    return True
-"""
-
-transformed = AddParensTransformer().get_transformations(source)
-
-for code in transformed:
-    print("Original")
-    print(code.original_stem)
-    print("\nMutated:")
-    print(code.mutated_stem)
-    print('=' * 20)
