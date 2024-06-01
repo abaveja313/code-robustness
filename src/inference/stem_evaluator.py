@@ -1,8 +1,7 @@
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from queue import Queue
-from typing import Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait, TimeoutError
+from typing import Tuple, List
 
 from evalplus.evaluate import check_correctness
 from loguru import logger
@@ -10,8 +9,7 @@ from loguru import logger
 from inference.dataset_manager import DatasetManager
 from inference.predict import InferenceEngine
 from shared.metrics import pass_at_k
-from shared.structs import BenchmarkResult, SolutionType
-from shared.structs import MutatedStem
+from shared.structs import BenchmarkResult, SolutionType, MutatedStem
 
 
 class StemEvaluator:
@@ -30,7 +28,7 @@ class StemEvaluator:
         self.k = k
 
     def compute_log_pass_ratio(
-            self, stem: MutatedStem, result: BenchmarkResult, epsilon=1e-6
+            self, stem: MutatedStem, result: BenchmarkResult, excluded_tests: list[int], epsilon=1e-6,
     ):
         logger.info("Computing Log Pass Ratio for:\n===========\nOld:\n{}\n\nMutated:\n{}",
                     stem.original_stem, stem.mutated_stem)
@@ -54,10 +52,10 @@ class StemEvaluator:
         mutated_predictions = predictions['mutated'].get_code()
 
         original_pass_at = self.compute_pass_at_threaded(
-            stem.original_stem, original_predictions, result, "Original", mutated=False
+            stem.original_stem, original_predictions, result, "Original", excluded_tests, mutated=False
         )
         mutated_pass_at = self.compute_pass_at_threaded(
-            stem.mutated_stem, mutated_predictions, result, "Mutated", mutated=True
+            stem.mutated_stem, mutated_predictions, result, "Mutated", excluded_tests, mutated=True
         )
         result.add_pass_ats(original_pass_at, mutated_pass_at)
 
@@ -73,7 +71,7 @@ class StemEvaluator:
         logger.info("Pass Ratios: {}", pass_at_ratios)
         return pass_at_ratios
 
-    def check_correctness_wrapper(self, solution, result_queue):
+    def check_correctness_wrapper(self, solution):
         logger.debug("Checking correctness for solution:\n{}", solution)
         eval_results = check_correctness(
             dataset=self.dataset_manager.dataset_name,
@@ -85,36 +83,64 @@ class StemEvaluator:
             gt_time_limit_factor=45.0,
         )
         eval_results["solution"] = solution
-        result_queue.put(eval_results)
+        return eval_results
 
-    def compute_pass_at_threaded(self, stem: str, solutions: list[str], result: BenchmarkResult, desc: str,
-                                 mutated=False):
-        def check_correctness_wrapper(solution):
-            result_queue = Queue()
-            self.check_correctness_wrapper(solution, result_queue)
-            return result_queue.get()
-
+    def compute_pass_at_threaded(self, stem: str, solutions: List[str], result: BenchmarkResult, desc: str,
+                                 excluded_tests: List[int], mutated=False, initial_timeout=40,
+                                 retry_timeout_increment=10, retries=3):
         num_passed = 0
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            futures = [executor.submit(check_correctness_wrapper, solution) for solution in solutions]
+        remaining_solutions = solutions
 
-            for i, future in enumerate(as_completed(futures), start=1):
-                eval_results = future.result()
-                solution = eval_results.pop("solution")
-                # logger.debug("{} Eval Results: {}", desc, eval_results)
+        for attempt in range(retries + 1):  # Including the initial attempt
+            if not remaining_solutions:
+                break
 
-                total = eval_results["base"][1] + eval_results["plus"][1]
-                passed = [i for i in total if i == 1]
-                if len(total) == 0:
-                    logger.error("Solution is syntactically incorrect:\n{}", solution)
-                    result.add_example(solution, SolutionType.BAD_SYNTAX, mutated)
+            with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+                future_solution_mapping = {executor.submit(self.check_correctness_wrapper, solution): solution for solution in remaining_solutions}
+
+                try:
+                    done, not_done = wait(future_solution_mapping.keys(), timeout=initial_timeout + attempt * retry_timeout_increment)
+
+                    for future in done:
+                        try:
+                            eval_results = future.result()
+                            solution = eval_results.pop("solution")
+
+                            total = eval_results["base"][1] + eval_results["plus"][1]
+                            filtered_total = [total[idx] for idx in range(len(total)) if idx not in excluded_tests]
+                            logger.debug("Removing excluded tests: {} -> {}", excluded_tests, filtered_total)
+
+                            if len(total) == 0:
+                                logger.warning("Solution has invalid syntax:\n{}", solution)
+                                result.add_example(solution, SolutionType.BAD_SYNTAX, mutated)
+
+                            passed = [i for i in filtered_total if i == 1]
+
+                            if len(passed) == len(filtered_total):
+                                num_passed += 1
+                                result.add_example(solution, SolutionType.PASSED, mutated)
+                            else:
+                                logger.warning("Solution failed:\n{}", solution)
+                                result.add_example(solution, SolutionType.FAILED, mutated)
+
+                        except Exception as e:
+                            logger.error("Error processing solution: {}\n{}", solution, e)
+
+                    remaining_solutions = [future_solution_mapping[future] for future in not_done]
+                    if not not_done:
+                        break  # All futures completed successfully within the timeout
+
+                    logger.warning("Timeout occurred. Retrying {} solutions... ({}/{})", len(not_done), attempt + 1,
+                                   retries)
+
+                except TimeoutError:
+                    logger.error("Timeout error occurred on attempt {}. Retrying... ({}/{})", attempt + 1, attempt + 1,
+                                 retries)
+                    remaining_solutions = [future_solution_mapping[future] for future in not_done]
                     continue
-                if not len(total) == 0 and len(total) == len(passed):
-                    num_passed += 1
-                    result.add_example(solution, SolutionType.PASSED, mutated)
-                else:
-                    logger.warning("Solution failed:\n{}", solution)
-                    result.add_example(solution, SolutionType.FAILED, mutated)
+                finally:
+                    for future in not_done:
+                        future.cancel()
 
         pass_at = {}
         for k in self.k:

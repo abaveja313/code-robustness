@@ -24,8 +24,13 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
     def postprocess(self, original: str, mutated: list[str]) -> list[MutatedStem]:
         results = []
         for m in mutated:
-            post_processed_original = Processors.postprocess_sequence(original)
-            post_processed_mutated = Processors.postprocess_sequence(m)
+            try:
+                post_processed_original = Processors.postprocess_sequence(original)
+                post_processed_mutated = Processors.postprocess_sequence(m)
+            except Exception:
+                logger.warning("Failed to postprocess sequence:\nOriginal:\n{}\nMutation:\n{}", original, m)
+                continue
+
             parsed = parse_stem(post_processed_original, post_processed_mutated)
             if not parsed:
                 logger.warning("Skipping mutation as it had no effect")
@@ -37,7 +42,7 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
         return results
 
     def get_transformations(self, current_text: str) -> list[MutatedStem]:
-        transformed = self.attack_func(current_text)
+        transformed = list(set(self.attack_func(current_text)))
         post_processed: list[MutatedStem] = self.postprocess(current_text, transformed)
         logger.debug(
             f"{self.__class__.__name__} produced {len(post_processed)} transformations"

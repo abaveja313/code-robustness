@@ -16,10 +16,12 @@ from mutations import CRT, RegisteredTransformation
 from mutations.registry import MutationRegistry
 from shared.gcs_storage_manager import GCSResultStorageManager
 from shared.structs import MutatedStem, BenchmarkResult
+from shared.logging_utils import create_problem_logger
 
+logger.remove()
 # Configure the console logger
-logger.add(sys.stdout, level="INFO")
-logger.add("output.log", level="INFO")
+logger.add(sys.stdout, level="DEBUG")
+logger.add("logs/output.log", level="INFO")
 
 
 def evaluate_problem(
@@ -28,63 +30,59 @@ def evaluate_problem(
         dataset_manager: DatasetManager,
         canonical_samples: int,
         canonical_batch_size: int,
+        canonical_passing_threshold: float,
         scoring_samples: int,
         min_correct_samples: int,
         result_manager: GCSResultStorageManager,
         exclude_mutation_types: list[CRT] = None,
 ):
-    log_file = f"{problem_id}.log"
-
     # Adding a unique file handler for each problem_id
-    logger.add(log_file, rotation="10 MB", compression="zip", level="DEBUG")
-
-    logger.info("Finding canonical solution...")
-    initializer = MaxProbInitializer(
-        inference_engine=inference_engine,
-        problem_id=problem_id,
-        num_samples=canonical_samples,
-        batch_size=canonical_batch_size,
-        min_correct_samples=min_correct_samples,
-        dataset_manager=dataset_manager,
-    )
-
-    canonical_solution = initializer.canonical_solution()
-
-    mutations: list[RegisteredTransformation] = MutationRegistry.get(
-        exclude=exclude_mutation_types
-    )
-    all_mutations = list(chain.from_iterable(mutations))
-    logger.info(f"Found {len(all_mutations)} available mutations")
-    evaluator = StemEvaluator(
-        inference_engine=inference_engine,
-        problem_id=problem_id,
-        num_samples=scoring_samples,
-        dataset_manager=dataset_manager,
-    )
-
-    pbar = tqdm.tqdm(all_mutations)
-
-    for mid, mutation in enumerate(pbar):
-        pbar.set_description(f"{mutation.__name__}")
-        stems: list[MutatedStem] = mutation().get_transformations(
-            current_text=canonical_solution
+    with create_problem_logger(problem_id=problem_id):
+        logger.info("Finding canonical solution...")
+        initializer = MaxProbInitializer(
+            inference_engine=inference_engine,
+            problem_id=problem_id,
+            num_samples=canonical_samples,
+            passing_threshold=canonical_passing_threshold,
+            batch_size=canonical_batch_size,
+            min_correct_samples=min_correct_samples,
+            dataset_manager=dataset_manager,
         )
-        if len(stems) == 0:
-            logger.info("Skipping mutation as it produced no output")
-            continue
 
-        for sid, stem in enumerate(tqdm.tqdm(stems)):
-            mutation_result = BenchmarkResult(
-                problem_id=problem_id, stem_id=str(sid), mutation_id=str(mid),
-                mutation=mutation.__name__
+        canonical_solution = initializer.canonical_solution()
+
+        mutations: list[RegisteredTransformation] = MutationRegistry.get(
+            exclude=exclude_mutation_types
+        )
+        all_mutations = list(chain.from_iterable(mutations))
+        logger.info(f"Found {len(all_mutations)} available mutations")
+        evaluator = StemEvaluator(
+            inference_engine=inference_engine,
+            problem_id=problem_id,
+            num_samples=scoring_samples,
+            dataset_manager=dataset_manager,
+        )
+
+        pbar = tqdm.tqdm(all_mutations)
+
+        for mid, mutation in enumerate(pbar):
+            pbar.set_description(f"{mutation.__name__}")
+            stems: list[MutatedStem] = mutation().get_transformations(
+                current_text=canonical_solution.code
             )
-            evaluator.compute_log_pass_ratio(stem, mutation_result)
-            logger.info("Result: " + str(mutation_result))
-            mutation_result.compute_metrics()
-            result_manager.add(mutation_result)
+            if len(stems) == 0:
+                logger.info("Skipping mutation as it produced no output")
+                continue
 
-    # Remove the handler after processing the problem
-    logger.remove()
+            for sid, stem in enumerate(tqdm.tqdm(stems)):
+                mutation_result = BenchmarkResult(
+                    problem_id=problem_id, stem_id=str(sid), mutation_id=str(mid),
+                    mutation=mutation.__name__
+                )
+                evaluator.compute_log_pass_ratio(stem, mutation_result, excluded_tests=canonical_solution.failed_tests)
+                logger.info("Result: " + str(mutation_result))
+                mutation_result.compute_metrics()
+                result_manager.add(mutation_result)
 
 
 def benchmark(
@@ -97,6 +95,7 @@ def benchmark(
         model_top_p: float = 0.9,
         dataset_mini: bool = True,
         dataset_noextreme: bool = False,
+        canonical_passing_threshold: float = 0.85,
         canonical_samples: int = 200,
         canonical_batch_size: int = 50,
         scoring_samples: int = 200,
@@ -150,6 +149,7 @@ def benchmark(
                 dataset_manager=dataset_manager,
                 canonical_samples=canonical_samples,
                 canonical_batch_size=canonical_batch_size,
+                canonical_passing_threshold=canonical_passing_threshold,
                 scoring_samples=scoring_samples,
                 min_correct_samples=min_correct_samples,
                 exclude_mutation_types=exclude_mutation_types,
@@ -165,9 +165,10 @@ if __name__ == "__main__":
         dataset_name="mbpp",
         model_name="deepseek-ai/deepseek-coder-1.3b-instruct",
         model_direct_completion=False,
-        model_temp=0.4,
+        model_temp=0.5,
         canonical_batch_size=200,
-        seed_problems_k=50,
+        canonical_passing_threshold=0.85,
+        seed_problems_k=250,
         seed_problem_metric="cyclomatic_complexity",
         dataset_mini=False,
         dataset_noextreme=True

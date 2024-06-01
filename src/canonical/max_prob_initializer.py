@@ -26,13 +26,8 @@ class MaxProbInitializer:
             passing_threshold: float = 1.0,
             num_samples: int = 300,
             batch_size: int = 50,
-            min_correct_samples: int = 10,
-            mini=True,
-            noextreme=False,
+            min_correct_samples: int = 10
     ):
-        if mini and noextreme:
-            raise ValueError("Cannot specify both mini=True and noextreme=True")
-
         self.inference_engine = inference_engine
         self.dataset_manager = dataset_manager
         self.problem_id = problem_id
@@ -47,6 +42,7 @@ class MaxProbInitializer:
         logger.info(f"Finding Canonical Solution for {self.problem_id}")
         batch: BatchSolution = self.batch_generate_sequences()
         passing_solutions = []
+        pass_ratios = []
         failed_stats = []
 
         for solution in tqdm.tqdm(batch.solutions, desc="Evaluating Sequences"):
@@ -60,6 +56,7 @@ class MaxProbInitializer:
                 base_only=False,
                 gt_time_limit_factor=45.0,
             )
+            logger.debug("Results: {}", eval_results)
 
             total = eval_results["base"][1] + eval_results["plus"][1]
             if len(total) == 0:
@@ -69,8 +66,17 @@ class MaxProbInitializer:
                 continue
 
             passed = [i for i in total if i == 1]
+            solution.failed_tests = [idx for idx in range(len(total)) if total[idx] == 0]
             pass_ratio = float(len(passed)) / float(len(total))
+
+            # Fail auto if base test is failed
+            if eval_results["base"][0] != 'pass':
+                failed_stats.append(pass_ratio)
+                continue
+
+            logger.info("Passing Ratio: {}", pass_ratio)
             if pass_ratio >= self.passing_threshold:
+                pass_ratios.append(pass_ratio)
                 passing_solutions.append(solution)
             else:
                 failed_stats.append(pass_ratio)
@@ -80,12 +86,12 @@ class MaxProbInitializer:
                 f"Needed {self.min_correct_samples} correct solutions, but found {len(passing_solutions)}"
             )
 
-        self._print_failure_stats(failed_stats)
+        self._print_stats("Failure", failed_stats)
 
         canonical_solution = max(passing_solutions, key=lambda sol: sol.probs)
-        logger.info(f"Max Probability Solution (Probs={canonical_solution.probs}):\n{canonical_solution.code}")
-
-        return canonical_solution.code
+        logger.warning(f"Max Probability Solution (Probs={canonical_solution.probs}):\n{canonical_solution.code}")
+        self._print_stats("Success", pass_ratios)
+        return canonical_solution
 
     def batch_generate_sequences(self):
         batch_solution = BatchSolution()
@@ -122,12 +128,12 @@ class MaxProbInitializer:
 
         return new_solution
 
-    def _print_failure_stats(self, fail_rates: list[float]):
+    def _print_stats(self, rate_type: str, rates: list[float]):
         debug_message = [
-            "Failure Rate Stats",
-            f"Failure Rate: {round(float(len(fail_rates)) / self.num_samples, 4) * 100}%",
-            f"Mean: {np.mean(fail_rates)}",
-            f"Median: {np.median(fail_rates)}",
-            f"Stddev: {np.std(fail_rates)}",
+            f"{rate_type} Rate Stats",
+            f"{rate_type} Rate: {round(float(len(rates)) / self.num_samples, 4) * 100}%",
+            f"Mean: {np.mean(rates)}",
+            f"Median: {np.median(rates)}",
+            f"Stddev: {np.std(rates)}",
         ]
         logger.info("\n".join(debug_message))

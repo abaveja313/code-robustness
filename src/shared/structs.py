@@ -6,6 +6,7 @@ from typing import Any
 class Solution:
     code: str
     probs: float
+    failed_tests: list[int] = None
 
     def post_process(self):
         from inference.processors import Processors
@@ -37,8 +38,9 @@ class SolutionType:
     FAILED = "failed"
     BAD_SYNTAX = "bad_syntax"
     BAD_PROCESS = "bad_post_process"
+    ERROR = "error"
 
-    _ALL_TYPES = (PASSED, FAILED, BAD_SYNTAX, BAD_PROCESS)
+    _ALL_TYPES = (PASSED, FAILED, BAD_SYNTAX, BAD_PROCESS, ERROR)
 
 
 def create_examples():

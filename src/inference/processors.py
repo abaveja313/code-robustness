@@ -31,9 +31,12 @@ class Processors:
 
         )
 
-        for transform in transforms:
-            sequence = transform(sequence)
+        try:
+            for transform in transforms:
+                sequence = transform(sequence)
 
+        except:
+            raise PostprocessingException
         return sequence
 
     @staticmethod
