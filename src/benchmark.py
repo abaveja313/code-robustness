@@ -138,7 +138,6 @@ def benchmark(
         seed_problems = dataset_manager.find_seeds(
             k=seed_problems_k, metric=seed_problem_metric
         )
-        random.shuffle(seed_problems)
 
     for seed_problem in seed_problems:
         if seed_problem in completed:
@@ -174,8 +173,11 @@ if __name__ == "__main__":
         canonical_batch_size=200,
         canonical_passing_threshold=0.85,
         seed_problems_k=250,
-        seed_problem_metric="cyclomatic_complexity",
+        seed_problem_metric="logical_lines",
         dataset_mini=False,
         dataset_noextreme=True,
-        base_only=True
+        base_only=True,
+        completed=(
+            'Mbpp/100',
+        )
     )

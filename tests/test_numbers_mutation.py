@@ -36,6 +36,35 @@ class TestIntegerReplacement:
 
 
 class TestNumericLiterals:
+    def test_on_boolean(self):
+        code = '''
+        def foobar():
+            return False
+        '''
+        expected = []
+        verify_transformation(IntegerOctTransformer, code, expected)
+
+    def test_multi_conversion_simple(self):
+        code = '''
+        def doWork():
+            """
+            a = 2
+            """
+            a = 2
+            return a
+        '''
+        expected = [
+            '''
+            def doWork():
+                """
+                a = 2
+                """
+                a = 0b10
+                return a
+            '''
+        ]
+        return verify_transformation(IntegerBinTransformer, code, expected)
+
     def test_base_conversion_docstring(self):
         code = '''
         def extract_even(test_tuple):

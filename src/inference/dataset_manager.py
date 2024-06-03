@@ -9,8 +9,9 @@ from evalplus.evaluate import (
     get_human_eval_plus_hash,
 )
 from loguru import logger
-from radon.metrics import mi_parameters
-
+from radon.complexity import cc_visit
+from radon.metrics import h_visit
+from radon.raw import analyze
 from shared.ast_utils import get_function_declaration_line
 from shared.program_utils import IDENT
 
@@ -59,20 +60,24 @@ class DatasetManager:
         return self.dataset[problem_id]
 
     def find_seeds(self, k: int, metric: str):
-        metric_mapping = {
-            "cyclomatic_complexity": 0,
-            "halstead_volume": 1,
-            "logical_lines": 2,
-        }
-        assert metric in metric_mapping, "Metric not supported"
+        match metric:
+            case "cyclomatic_complexity":
+                m_func = lambda code: cc_visit(code)[0].complexity
+            case "halstead_volume":
+                m_func = lambda code: h_visit(code).total.volume
+            case "logical_lines":
+                m_func = lambda code: analyze(code).lloc
+            case _:
+                raise ValueError(f"Unknown metric: {metric}")
 
         solution_scores = {}
         for problem_id, detail in self.dataset.items():
             canonical_solution = detail["prompt"] + detail["canonical_solution"]
-            complexity = mi_parameters(canonical_solution)
-            solution_scores[problem_id] = complexity[metric_mapping[metric]]
+            complexity = m_func(canonical_solution)
+            solution_scores[problem_id] = complexity
 
         seeds = sorted(solution_scores, key=solution_scores.get, reverse=True)[:k]
+
         logger.info(f"Dataset Seeds {self.dataset_name}: {seeds}")
         return seeds
 

@@ -88,7 +88,7 @@ class StemEvaluator:
         return eval_results
 
     def compute_pass_at_threaded(self, stem: str, solutions: List[str], result: BenchmarkResult, desc: str,
-                                 excluded_tests: List[int], mutated=False, initial_timeout=40,
+                                 excluded_tests: List[int], mutated=False, initial_timeout=300,
                                  retry_timeout_increment=10, retries=3):
         num_passed = 0
         remaining_solutions = solutions
