@@ -13,14 +13,14 @@ class SimplifyTransformer(ast.NodeTransformer):
         node.operand = self.visit(node.operand)
         if isinstance(node.op, ast.Not):
             if isinstance(node.operand, ast.UnaryOp) and isinstance(
-                node.operand.op, ast.Not
+                    node.operand.op, ast.Not
             ):
                 # Rule 1: A unary not applied to a unary not can be replaced with its value
                 new_node = node.operand.operand
                 return self.generic_visit(new_node)
             elif (
-                isinstance(node.operand, ast.NameConstant)
-                and node.operand.value is False
+                    isinstance(node.operand, ast.NameConstant)
+                    and node.operand.value is False
             ):
                 # Rule: not False can be replaced with True
                 new_node = ast.NameConstant(value=True)
@@ -90,9 +90,9 @@ class FirstInversionVisitor(OneByOneVisitor):
         # Step 1: If the expression is a unary not on a compound expression
         # (bool op), apply De Morgan's law to expand it
         if (
-            isinstance(node, ast.UnaryOp)
-            and isinstance(node.op, ast.Not)
-            and isinstance(node.operand, ast.BoolOp)
+                isinstance(node, ast.UnaryOp)
+                and isinstance(node.op, ast.Not)
+                and isinstance(node.operand, ast.BoolOp)
         ):
             node = FirstInversionVisitor.apply_demorgan(node.operand)
 
@@ -130,22 +130,22 @@ class FirstInversionVisitor(OneByOneVisitor):
 class SecondInversionVisitor(OneByOneVisitor):
     def is_boolean_expr(self, node):
         return (
-            isinstance(node, (ast.Constant, ast.NameConstant))
-            and isinstance(getattr(node, "value", None), bool)
-            or isinstance(node, (ast.Compare, ast.BoolOp))
-            or (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not))
-            or (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Name)
-                and node.func.id in {"isinstance", "callable", "bool"}
-            )
+                isinstance(node, (ast.Constant, ast.NameConstant))
+                and isinstance(getattr(node, "value", None), bool)
+                or isinstance(node, (ast.Compare, ast.BoolOp))
+                or (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not))
+                or (
+                        isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Name)
+                        and node.func.id in {"isinstance", "callable", "bool"}
+                )
         )
 
     def is_transformable(self, node):
         return (
-            isinstance(node, (ast.If, ast.While))
-            or (is_unary_assign(node) and self.is_boolean_expr(node.value))
-            or (isinstance(node, ast.Assign) and self.is_boolean_expr(node.value))
+                isinstance(node, (ast.If, ast.While))
+                or (is_unary_assign(node) and self.is_boolean_expr(node.value))
+                or (isinstance(node, ast.Assign) and self.is_boolean_expr(node.value))
         )
 
     def transform_node(self, node) -> list[ast.AST] | ast.AST:

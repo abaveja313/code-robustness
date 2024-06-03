@@ -36,6 +36,17 @@ class TestIntegerReplacement:
 
 
 class TestNumericLiterals:
+    def test_base_conversion_docstring(self):
+        code = '''
+        def extract_even(test_tuple):
+            """
+            Write a function to remove uneven elements in the nested mixed tuple.
+            assert extract_even((4, 5, (7, 6, (0b10, 4)), 6, 8)) == (4, (6, (2, 4)), 6, 8),
+            """
+            pass
+        '''
+        verify_transformation(IntegerBinTransformer, code, [])
+
     def test_base_2_conversion(self):
         code = """
         print(4)

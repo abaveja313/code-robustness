@@ -104,7 +104,7 @@ def example_function():
     # This is a comment
     b = 2
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test with comments and docstrings passed!")
@@ -121,7 +121,7 @@ def another_function():
 def another_function():
     x = 10
     y = 200  # Inline comment
-    z = 30
+    z = 30a
 '''
     expected_new = '''
 def another_function():
@@ -133,7 +133,7 @@ def another_function():
     x = 10
     y = 20  # Inline comment
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test with inline comments passed!")
@@ -166,7 +166,7 @@ def function_with_block_comment():
     # Block comment
     y = 20
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test with block comments passed!")
@@ -192,7 +192,7 @@ def simple_function():
 def simple_function():
     def nested():
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test without comments or docstrings passed!")
@@ -231,7 +231,7 @@ def simple_function():
     b = 2
     if a < b:
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test simple code with differing line passed!")
@@ -278,7 +278,7 @@ def complex_function(x):
         x += i
     if a < b:
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new  = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test complex code with differing line passed!")
@@ -319,7 +319,7 @@ def docstring_function():
     a = 1
     b = 2
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test with docstring functions, same docstring, but different lines passed!")
@@ -360,7 +360,7 @@ def complex_function(x):
         x += i
     x += b  # This is an inline comment
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test single inline comment passed!")
@@ -405,7 +405,7 @@ def complex_function(x):
     # This is a block comment
     x += b
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test single block comment passed!")
@@ -450,7 +450,7 @@ def complex_function(x):
         x += i
     x += b
 '''
-    result_new, result_old = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test multiple sequential comments passed!")

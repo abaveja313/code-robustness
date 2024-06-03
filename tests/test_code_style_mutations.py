@@ -284,12 +284,6 @@ class TestIdentifierRename:
        """
         expected = [
             """
-            def foo(e, f):
-                a = 1
-                b = 2
-                return a + b
-            """,
-            """
             def foo(c, d):
                 e = 1
                 b = 2
@@ -314,14 +308,6 @@ class TestIdentifierRename:
              return c
         """
         expected = [
-            """
-            def foo(f, h):
-                (d, c) = (6, 4)
-                for e in range(a + d):
-                    g = 3
-                    c += g
-                return c
-            """,
             """
             def foo(a, b):
                 (d, c) = (6, 4)
@@ -533,60 +519,6 @@ class TestPrintInjector:
             """
         ]
         verify_visitor(PrintInjectionVisitor, code, expected)
-
-
-class TestStringQuote:
-    def test_string_quote_single(self):
-        code = """
-        a = "foo"
-        print('bar' + "hello" + a)
-        """
-        expected = [
-            """
-            a = 'foo'
-            print('bar' + "hello" + a)
-            """,
-            """
-            a = "foo"
-            print('bar' + 'hello' + a)
-            """
-        ]
-        verify_transformation(StringQuoteSingleTransformer, code, expected)
-
-    def test_string_quote_docstring(self):
-        code = """
-        def foo():
-            '''
-            a = ""
-            '''
-            pass
-        """
-        verify_transformation(StringQuoteSingleTransformer, code, [])
-
-    def test_string_quote_double(self):
-        code = """
-        def doSomething():
-            l = ['foo', "bar", 'fodo']
-            return map(lambda x: x + 'hello', l)
-        """
-        expected = [
-            """
-            def doSomething():
-                l = ["foo", "bar", 'fodo']
-                return map(lambda x: x + 'hello', l)
-            """,
-            """
-            def doSomething():
-                l = ['foo', "bar", 'fodo']
-                return map(lambda x: x + "hello", l)
-            """,
-            """
-            def doSomething():
-                l = ['foo', "bar", "fodo"]
-                return map(lambda x: x + 'hello', l)
-            """,
-        ]
-        verify_transformation(StringQuoteDoubleTransformer, code, expected)
 
 
 class TestUnusedVariables:

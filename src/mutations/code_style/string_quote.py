@@ -42,7 +42,7 @@ class StringQuoteTransformer:
             yield self.replace_quotes(node)
 
 
-class StringQuoteSingleTransformer(RegisteredTransformation, category=CRT.code_style):
+class StringQuoteSingleTransformer(RegisteredTransformation, category=CRT.code_style, disabled=True):
     @property
     def deterministic(self):
         return True
@@ -56,7 +56,7 @@ class StringQuoteSingleTransformer(RegisteredTransformation, category=CRT.code_s
         return process
 
 
-class StringQuoteDoubleTransformer(RegisteredTransformation, category=CRT.code_style):
+class StringQuoteDoubleTransformer(RegisteredTransformation, category=CRT.code_style, disabled=True):
     @property
     def deterministic(self):
         return True

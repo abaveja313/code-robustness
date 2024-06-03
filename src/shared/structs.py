@@ -10,7 +10,7 @@ class Solution:
 
     def post_process(self):
         from inference.processors import Processors
-        self.code = Processors.postprocess_sequence(self.code)
+        self.code = Processors.postprocess_eval(self.code)
 
 
 class BatchSolution:

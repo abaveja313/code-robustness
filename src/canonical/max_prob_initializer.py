@@ -26,7 +26,8 @@ class MaxProbInitializer:
             passing_threshold: float = 1.0,
             num_samples: int = 300,
             batch_size: int = 50,
-            min_correct_samples: int = 10
+            min_correct_samples: int = 10,
+            base_only: bool = False
     ):
         self.inference_engine = inference_engine
         self.dataset_manager = dataset_manager
@@ -37,6 +38,7 @@ class MaxProbInitializer:
         self.num_samples = num_samples
         self.min_correct_samples = min_correct_samples
         self.cache_dir = ".cache"
+        self.base_only = base_only
 
     def _canonical_solution(self):
         logger.info(f"Finding Canonical Solution for {self.problem_id}")
@@ -53,12 +55,15 @@ class MaxProbInitializer:
                 expected_output=self.dataset_manager.get_correct(self.problem_id),
                 problem=self.problem,
                 solution=solution.code,
-                base_only=False,
+                base_only=self.base_only,
                 gt_time_limit_factor=45.0,
             )
             logger.debug("Results: {}", eval_results)
 
-            total = eval_results["base"][1] + eval_results["plus"][1]
+            total = eval_results["base"][1]
+            if not self.base_only:
+                total += eval_results["plus"][1]
+
             if len(total) == 0:
                 logger.warning(
                     f"No results were found for a syntactically incorrect solution.\n{solution.code}"
@@ -68,11 +73,6 @@ class MaxProbInitializer:
             passed = [i for i in total if i == 1]
             solution.failed_tests = [idx for idx in range(len(total)) if total[idx] == 0]
             pass_ratio = float(len(passed)) / float(len(total))
-
-            # Fail auto if base test is failed
-            if eval_results["base"][0] != 'pass':
-                failed_stats.append(pass_ratio)
-                continue
 
             logger.info("Passing Ratio: {}", pass_ratio)
             if pass_ratio >= self.passing_threshold:

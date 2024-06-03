@@ -25,8 +25,8 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
         results = []
         for m in mutated:
             try:
-                post_processed_original = Processors.postprocess_sequence(original)
-                post_processed_mutated = Processors.postprocess_sequence(m)
+                post_processed_original = Processors.preprocess_sequence(original)
+                post_processed_mutated = Processors.preprocess_sequence(m)
             except Exception:
                 logger.warning("Failed to postprocess sequence:\nOriginal:\n{}\nMutation:\n{}", original, m)
                 continue

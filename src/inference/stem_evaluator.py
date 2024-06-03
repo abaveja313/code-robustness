@@ -20,12 +20,14 @@ class StemEvaluator:
             problem_id: str,
             num_samples: int = 100,
             k: Tuple[int, ...] = (1, 5, 10),
+            base_only: bool = False
     ):
         self.inference = inference_engine
         self.dataset_manager = dataset_manager
         self.num_samples = num_samples
         self.problem_id = problem_id
         self.k = k
+        self.base_only = base_only
 
     def compute_log_pass_ratio(
             self, stem: MutatedStem, result: BenchmarkResult, excluded_tests: list[int], epsilon=1e-6,
@@ -79,7 +81,7 @@ class StemEvaluator:
             expected_output=self.dataset_manager.get_correct(self.problem_id),
             problem=self.dataset_manager.get_problem(self.problem_id),
             solution=solution,
-            base_only=False,
+            base_only=self.base_only,
             gt_time_limit_factor=45.0,
         )
         eval_results["solution"] = solution
@@ -96,17 +98,24 @@ class StemEvaluator:
                 break
 
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-                future_solution_mapping = {executor.submit(self.check_correctness_wrapper, solution): solution for solution in remaining_solutions}
+                future_solution_mapping = {executor.submit(self.check_correctness_wrapper, solution): solution
+                                           for solution in remaining_solutions}
 
                 try:
-                    done, not_done = wait(future_solution_mapping.keys(), timeout=initial_timeout + attempt * retry_timeout_increment)
+                    done, not_done = wait(
+                        future_solution_mapping.keys(),
+                        timeout=initial_timeout + attempt * retry_timeout_increment
+                    )
 
                     for future in done:
                         try:
                             eval_results = future.result()
                             solution = eval_results.pop("solution")
 
-                            total = eval_results["base"][1] + eval_results["plus"][1]
+                            total = eval_results["base"][1]
+                            if not self.base_only:
+                                total += eval_results["plus"][1]
+
                             filtered_total = [total[idx] for idx in range(len(total)) if idx not in excluded_tests]
                             logger.debug("Removing excluded tests: {} -> {}", excluded_tests, filtered_total)
 
@@ -117,10 +126,11 @@ class StemEvaluator:
                             passed = [i for i in filtered_total if i == 1]
 
                             if len(passed) == len(filtered_total):
+                                logger.info("Solution passed:{}\n{}", filtered_total, solution)
                                 num_passed += 1
                                 result.add_example(solution, SolutionType.PASSED, mutated)
                             else:
-                                logger.warning("Solution failed:\n{}", solution)
+                                logger.warning("Solution failed:{}\n{}", filtered_total, solution)
                                 result.add_example(solution, SolutionType.FAILED, mutated)
 
                         except Exception as e:

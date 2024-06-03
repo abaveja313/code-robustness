@@ -35,6 +35,7 @@ def evaluate_problem(
         min_correct_samples: int,
         result_manager: GCSResultStorageManager,
         exclude_mutation_types: list[CRT] = None,
+        base_only: bool = False
 ):
     # Adding a unique file handler for each problem_id
     with create_problem_logger(problem_id=problem_id):
@@ -47,6 +48,7 @@ def evaluate_problem(
             batch_size=canonical_batch_size,
             min_correct_samples=min_correct_samples,
             dataset_manager=dataset_manager,
+            base_only=base_only
         )
 
         canonical_solution = initializer.canonical_solution()
@@ -61,6 +63,7 @@ def evaluate_problem(
             problem_id=problem_id,
             num_samples=scoring_samples,
             dataset_manager=dataset_manager,
+            base_only=base_only
         )
 
         pbar = tqdm.tqdm(all_mutations)
@@ -93,6 +96,7 @@ def benchmark(
         model_max_new_tokens: int = 1024,
         model_dtype="bfloat16",
         model_top_p: float = 0.9,
+        base_only: bool = False,
         dataset_mini: bool = True,
         dataset_noextreme: bool = False,
         canonical_passing_threshold: float = 0.85,
@@ -154,6 +158,7 @@ def benchmark(
                 min_correct_samples=min_correct_samples,
                 exclude_mutation_types=exclude_mutation_types,
                 result_manager=result_manager,
+                base_only=base_only
             )
         except NoPassingSolutionException:
             logger.exception(f"Unable to find passing solutions for problem {seed_problem}")
@@ -171,5 +176,6 @@ if __name__ == "__main__":
         seed_problems_k=250,
         seed_problem_metric="cyclomatic_complexity",
         dataset_mini=False,
-        dataset_noextreme=True
+        dataset_noextreme=True,
+        base_only=True
     )

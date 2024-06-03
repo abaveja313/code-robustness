@@ -65,7 +65,8 @@ def collect_declared_identifiers(source_code):
 
 class IdentifierRenameVisitorBase(OneByOneVisitor, ABC):
     def is_transformable(self, node):
-        return isinstance(node, (ast.FunctionDef, ast.For)) or is_unary_assign(node)
+        # Skip function declarations as they cause truncation prematurely
+        return isinstance(node, ast.For) or is_unary_assign(node)
 
     @abstractmethod
     def next_identifier(self) -> typing.Generator[str, None, None]:
