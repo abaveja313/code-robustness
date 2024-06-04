@@ -461,13 +461,17 @@ def test_parse_stem_extra_skips():
 def func(x):
     a = 1
     print(a)
+    print(b)
     '''
 
     new_code = '''
 def func(x):
     a = 1
     a = a
+    
+    
     print(a)
+    print(b)
     '''
 
     expected_old = '''
@@ -480,6 +484,8 @@ def func(x):
 def func(x):
     a = 1
     a = a
+    
+    
     print(a)
     '''
 

@@ -177,7 +177,4 @@ if __name__ == "__main__":
         dataset_mini=False,
         dataset_noextreme=True,
         base_only=True,
-        completed=(
-            'Mbpp/100',
-        )
     )
