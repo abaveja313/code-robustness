@@ -12,12 +12,13 @@ from shared.program_utils import parse_stem
 
 class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
     @property
-    def extraneous(self):
-        return False
-
-    @property
     def deterministic(self):
         return True
+
+    @property
+    def stem_extra_skips(self):
+        # Some mutations create extra lines we want to skip in our stem parsing.
+        return 0
 
     @property
     @abstractmethod
@@ -28,13 +29,13 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
         results = []
         for m in mutated:
             try:
-                post_processed_original = Processors.preprocess_sequence(original)
-                post_processed_mutated = Processors.preprocess_sequence(m)
+                post_processed_original = Processors.postprocess_mutation(original)
+                post_processed_mutated = Processors.postprocess_mutation(m)
             except Exception:
                 logger.warning("Failed to postprocess sequence:\nOriginal:\n{}\nMutation:\n{}", original, m)
                 continue
 
-            parsed = parse_stem(post_processed_original, post_processed_mutated, extraneous=self.extraneous)
+            parsed = parse_stem(post_processed_original, post_processed_mutated, extra_skips=self.stem_extra_skips)
             if not parsed:
                 logger.warning("Skipping mutation as it had no effect")
                 continue
@@ -45,6 +46,8 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
         return results
 
     def get_transformations(self, current_text: str) -> list[MutatedStem]:
+        # Filter if for some reason we have duplicate transformations
+        # TODO do we still need this?
         transformed = list(set(self.attack_func(current_text)))
         post_processed: list[MutatedStem] = self.postprocess(current_text, transformed)
         logger.debug(

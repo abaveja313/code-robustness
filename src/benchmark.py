@@ -166,7 +166,7 @@ def benchmark(
 if __name__ == "__main__":
     os.environ["TOKENIZERS_PARALLELISM"] = "true"
     benchmark(
-        dataset_name="mbpp",
+        dataset_name="humaneval",
         model_name="deepseek-ai/deepseek-coder-1.3b-instruct",
         model_direct_completion=False,
         model_temp=0.5,
@@ -177,7 +177,4 @@ if __name__ == "__main__":
         dataset_mini=False,
         dataset_noextreme=True,
         base_only=True,
-        completed=(
-            'Mbpp/100',
-        )
     )

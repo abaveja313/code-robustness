@@ -22,9 +22,8 @@ class Processors:
         return remove_pass(stem)
 
     @staticmethod
-    def preprocess_sequence(sequence: str) -> str:
+    def postprocess_mutation(sequence: str) -> str:
         transforms = (
-            lambda code: code.replace('\\', '\\\\'),
             lambda code: code.rstrip('\n'),
             lambda code: black.format_str(
                 code,

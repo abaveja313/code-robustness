@@ -179,39 +179,30 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
     return "\n".join(cleaned_lines)
 
 
-def parse_stem(old_code: str, new_code: str, extraneous_line: bool = False):
+def parse_stem(old_code: str, new_code: str, extra_skips: int = 0):
     old_lines = old_code.splitlines()
     new_lines = new_code.splitlines()
     if old_lines == new_lines:
         return
-
-    # old_lines = old_code.replace('\n\n', '\n').splitlines()
-    # new_lines = new_code.replace('\n\n', '\n').splitlines()
-
     old_index = 0
     new_index = 0
-
     # Skip matching lines at the beginning
     while old_index < len(old_lines) and new_index < len(new_lines):
         old_line = old_lines[old_index].strip()
         new_line = new_lines[new_index].strip()
-
         # We don't care about extra newlines being inserted (though this shouldn't happen)
         while old_line == '\n' and old_index < len(old_lines):
             old_index += 1
             continue
-
         while new_line == '\n' and new_index < len(new_lines):
             new_index += 1
             continue
-
         # Skip comments and docstrings
         if old_line == new_line or old_line.startswith(('"""', "'''", "#")):
             old_index += 1
             new_index += 1
         else:
             break
-
     # Capture the function body from the new lines until the first difference
     while new_index < len(new_lines) and (new_lines[new_index].strip() == "" or
                                           new_lines[new_index].strip().startswith("#") or
@@ -221,17 +212,20 @@ def parse_stem(old_code: str, new_code: str, extraneous_line: bool = False):
                                           old_lines[old_index].strip().startswith("#") or
                                           old_lines[old_index].strip().startswith(('"""', "'''"))):
         old_index += 1
-
     # Ensure capturing the last line if the loop ended due to different lines
     if new_index < len(new_lines):
         new_index += 1
-        if extraneous_line and new_index < len(new_lines):
-            new_index += 1
 
     if old_index < len(old_lines):
         old_index += 1
+    # Move new_index to the next extra_skipth line after the difference
+    if extra_skips > 0:
+        skip_count = 0
+        while skip_count < extra_skips and new_index < len(new_lines):
+            new_index += 1
+            if new_lines[new_index - 1].strip() != "":
+                skip_count += 1
 
     new_func_split = "\n".join(new_lines[:new_index])
     old_func_split = "\n".join(old_lines[:old_index])
-
     return old_func_split, new_func_split

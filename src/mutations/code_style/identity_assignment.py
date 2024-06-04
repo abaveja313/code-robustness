@@ -22,3 +22,7 @@ class IdentityAssignmentTransformer(OneByOneTransformer, category=CRT.code_style
     @property
     def visitor(self) -> Type[OneByOneVisitor]:
         return IdentityAssignmentVisitor
+
+    @property
+    def stem_extra_skips(self):
+        return 1

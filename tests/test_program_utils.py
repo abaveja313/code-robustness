@@ -278,7 +278,7 @@ def complex_function(x):
         x += i
     if a < b:
 '''
-    result_old, result_new  = parse_stem(old_code, new_code)
+    result_old, result_new = parse_stem(old_code, new_code)
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test complex code with differing line passed!")
@@ -454,3 +454,41 @@ def complex_function(x):
     assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
     assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
     print("Test multiple sequential comments passed!")
+
+
+def test_parse_stem_extra_skips():
+    old_code = '''
+def func(x):
+    a = 1
+    print(a)
+    print(b)
+    '''
+
+    new_code = '''
+def func(x):
+    a = 1
+    a = a
+    
+    
+    print(a)
+    print(b)
+    '''
+
+    expected_old = '''
+def func(x):
+    a = 1
+    print(a)
+    '''
+
+    expected_new = '''
+def func(x):
+    a = 1
+    a = a
+    
+    
+    print(a)
+    '''
+
+    result_old, result_new = parse_stem(old_code, new_code, 1)
+    assert result_new.strip() == expected_new.strip(), f"Failed for new code. Expected: {expected_new}, Got: {result_new}"
+    assert result_old.strip() == expected_old.strip(), f"Failed for old code. Expected: {expected_old}, Got: {result_old}"
