@@ -1,20 +1,20 @@
 import textwrap
 from enum import Enum
 
-# from evalplus.eval._special_oracle import MBPP_OUTPUT_NOT_NONE_TASKS
-# from evalplus.evaluate import (
-#     get_groundtruth,
-#     get_mbpp_plus,
-#     get_mbpp_plus_hash,
-#     get_human_eval_plus,
-#     get_human_eval_plus_hash,
-# )
-# from loguru import logger
-# from radon.complexity import cc_visit
-# from radon.metrics import h_visit
-# from radon.raw import analyze
-# from shared.ast_utils import get_function_declaration_line
-# from shared.program_utils import IDENT
+from evalplus.eval._special_oracle import MBPP_OUTPUT_NOT_NONE_TASKS
+from evalplus.evaluate import (
+    get_groundtruth,
+    get_mbpp_plus,
+    get_mbpp_plus_hash,
+    get_human_eval_plus,
+    get_human_eval_plus_hash,
+)
+from loguru import logger
+from radon.complexity import cc_visit
+from radon.metrics import h_visit
+from radon.raw import analyze
+from shared.ast_utils import get_function_declaration_line
+from shared.program_utils import IDENT
 
 
 class Dataset(str, Enum):
