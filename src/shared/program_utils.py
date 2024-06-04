@@ -116,7 +116,7 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
     return "\n".join(cleaned_lines)
 
 
-def parse_stem(old_code: str, new_code: str):
+def parse_stem(old_code: str, new_code: str, extra_skips: int = 0):
     old_lines = old_code.splitlines()
     new_lines = new_code.splitlines()
     if old_lines == new_lines:
@@ -162,6 +162,9 @@ def parse_stem(old_code: str, new_code: str):
     # Ensure capturing the last line if the loop ended due to different lines
     if new_index < len(new_lines):
         new_index += 1
+        if extra_skips > 0 and new_index < len(new_lines):
+            new_index += extra_skips
+
     if old_index < len(old_lines):
         old_index += 1
 
