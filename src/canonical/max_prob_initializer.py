@@ -12,7 +12,7 @@ from inference.dataset_manager import DatasetManager
 from inference.predict import InferenceEngine
 from shared.structs import BatchSolution
 
-from src.inference.processors import Processors
+from inference.processors import Processors
 
 
 class NoPassingSolutionException(Exception):
