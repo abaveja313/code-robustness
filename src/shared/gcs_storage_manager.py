@@ -9,10 +9,10 @@ class GCSResultStorageManager:
     RESULT_PATH = "results.json"
 
     def __init__(
-            self,
-            bucket_name: str = "amrit-research-samples",
-            project: str = "research",
-            service_account_file: str = "/home/user/service-account.json",
+        self,
+        bucket_name: str = "amrit-research-samples",
+        project: str = "research",
+        service_account_file: str = "/home/user/service-account.json",
     ):
         self.bucket_name = bucket_name
         self.gcs = GCSFileSystem(project=project, token=service_account_file)

@@ -20,7 +20,7 @@ class TupleParenthesesTransformer(ast.NodeTransformer):
             # Retrieve the source code of the tuple
             tuple_src = self.atok.get_text(node)
             # Wrap the tuple with parentheses
-            new_tuple_src = f'({tuple_src})'
+            new_tuple_src = f"({tuple_src})"
             # Save the original and new source code to perform replacement later
             self.replacements.append((self.atok.get_text_range(node), new_tuple_src))
 
@@ -63,17 +63,21 @@ def transform_parenthesis(source_code):
 
     # Apply replacements
     new_source_code = copy.deepcopy(atok.text)
-    for (start, end), new_tuple_src in sorted(transformer.replacements, key=lambda x: x[0][0], reverse=True):
-        new_source_code = new_source_code[:start] + new_tuple_src + new_source_code[end:]
+    for (start, end), new_tuple_src in sorted(
+        transformer.replacements, key=lambda x: x[0][0], reverse=True
+    ):
+        new_source_code = (
+            new_source_code[:start] + new_tuple_src + new_source_code[end:]
+        )
 
     return new_source_code
 
 
 def program_concat(stem: str, new_code: str) -> str:
-    new_code = new_code.lstrip('\n')
-    if stem.endswith('\n'):
+    new_code = new_code.lstrip("\n")
+    if stem.endswith("\n"):
         return stem + new_code
-    return stem + '\n' + new_code
+    return stem + "\n" + new_code
 
 
 def remove_pass(prompt: str) -> str:
@@ -158,9 +162,9 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
             if token_string.startswith(MUTATED_COMMENT_PREFIX):
                 out += token_string
         elif (
-                token_type == tokenize.STRING
-                and remove_docstrings
-                and prev_toktype == tokenize.INDENT
+            token_type == tokenize.STRING
+            and remove_docstrings
+            and prev_toktype == tokenize.INDENT
         ):
             pass
         else:
@@ -191,10 +195,10 @@ def parse_stem(old_code: str, new_code: str, extra_skips: int = 0):
         old_line = old_lines[old_index].strip()
         new_line = new_lines[new_index].strip()
         # We don't care about extra newlines being inserted (though this shouldn't happen)
-        while old_line == '\n' and old_index < len(old_lines):
+        while old_line == "\n" and old_index < len(old_lines):
             old_index += 1
             continue
-        while new_line == '\n' and new_index < len(new_lines):
+        while new_line == "\n" and new_index < len(new_lines):
             new_index += 1
             continue
         # Skip comments and docstrings
@@ -204,13 +208,17 @@ def parse_stem(old_code: str, new_code: str, extra_skips: int = 0):
         else:
             break
     # Capture the function body from the new lines until the first difference
-    while new_index < len(new_lines) and (new_lines[new_index].strip() == "" or
-                                          new_lines[new_index].strip().startswith("#") or
-                                          new_lines[new_index].strip().startswith(('"""', "'''"))):
+    while new_index < len(new_lines) and (
+        new_lines[new_index].strip() == ""
+        or new_lines[new_index].strip().startswith("#")
+        or new_lines[new_index].strip().startswith(('"""', "'''"))
+    ):
         new_index += 1
-    while old_index < len(old_lines) and (old_lines[old_index].strip() == "" or
-                                          old_lines[old_index].strip().startswith("#") or
-                                          old_lines[old_index].strip().startswith(('"""', "'''"))):
+    while old_index < len(old_lines) and (
+        old_lines[old_index].strip() == ""
+        or old_lines[old_index].strip().startswith("#")
+        or old_lines[old_index].strip().startswith(('"""', "'''"))
+    ):
         old_index += 1
     # Ensure capturing the last line if the loop ended due to different lines
     if new_index < len(new_lines):

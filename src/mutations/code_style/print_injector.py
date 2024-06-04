@@ -26,11 +26,11 @@ class PrintInjectionVisitor(OneByOneVisitor):
 
     def is_transformable(self, node):
         return (
-                isinstance(node, (ast.Call, ast.Assign, ast.Expr))
-                and hasattr(node, "parent")
-                and isinstance(
-            node.parent, (ast.If, ast.For, ast.While, ast.FunctionDef, ast.Module)
-        )
+            isinstance(node, (ast.Call, ast.Assign, ast.Expr))
+            and hasattr(node, "parent")
+            and isinstance(
+                node.parent, (ast.If, ast.For, ast.While, ast.FunctionDef, ast.Module)
+            )
         )
 
 

@@ -29,10 +29,12 @@ class ConstantSplittingVisitor(OneByOneVisitor):
         return concatenated_node
 
     def is_transformable(self, node):
-        return (isinstance(node, ast.Constant) and
-                isinstance(node.value, str) and
-                len(node.value) > 3 and
-                not is_node_within_docstring(node, self.docstring_ranges))
+        return (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and len(node.value) > 3
+            and not is_node_within_docstring(node, self.docstring_ranges)
+        )
 
 
 class ConstantSplittingTransformer(OneByOneTransformer, category=CRT.strings):

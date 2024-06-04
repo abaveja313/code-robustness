@@ -29,7 +29,7 @@ class MergeConsecutiveStatements:
         while i < len(statements) - 1:
             stmt1, stmt2 = statements[i], statements[i + 1]
             if isinstance(stmt1, (ast.Expr, ast.Assign, ast.AugAssign)) and isinstance(
-                    stmt2, (ast.Expr, ast.Assign, ast.AugAssign)
+                stmt2, (ast.Expr, ast.Assign, ast.AugAssign)
             ):
                 new_source = merge_two_statements(stmt1, stmt2)
                 merged_versions.append(new_source)

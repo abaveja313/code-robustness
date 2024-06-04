@@ -1,29 +1,36 @@
 import textwrap
+from enum import Enum
 
-from evalplus.eval._special_oracle import MBPP_OUTPUT_NOT_NONE_TASKS
-from evalplus.evaluate import (
-    get_groundtruth,
-    get_mbpp_plus,
-    get_mbpp_plus_hash,
-    get_human_eval_plus,
-    get_human_eval_plus_hash,
-)
-from loguru import logger
-from radon.complexity import cc_visit
-from radon.metrics import h_visit
-from radon.raw import analyze
-from shared.ast_utils import get_function_declaration_line
-from shared.program_utils import IDENT
+# from evalplus.eval._special_oracle import MBPP_OUTPUT_NOT_NONE_TASKS
+# from evalplus.evaluate import (
+#     get_groundtruth,
+#     get_mbpp_plus,
+#     get_mbpp_plus_hash,
+#     get_human_eval_plus,
+#     get_human_eval_plus_hash,
+# )
+# from loguru import logger
+# from radon.complexity import cc_visit
+# from radon.metrics import h_visit
+# from radon.raw import analyze
+# from shared.ast_utils import get_function_declaration_line
+# from shared.program_utils import IDENT
 
 
-class Dataset:
+class Dataset(str, Enum):
     HUMANEVAL = "humaneval"
     MBPP = "mbpp"
 
 
+class SeedStrategy(str, Enum):
+    CYCLOMATIC_COMPLEXITY = "cyclomatic_complexity"
+    HALSTEAD_VOLUME = "halstead_volume"
+    LOGICAL_LINES = "logical_lines"
+
+
 class DatasetManager:
     def __init__(
-            self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False
+        self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False
     ):
         self.dataset_name = dataset
         self.dataset_params = dict(mini=mini, noextreme=noextreme)
@@ -61,11 +68,11 @@ class DatasetManager:
 
     def find_seeds(self, k: int, metric: str):
         match metric:
-            case "cyclomatic_complexity":
+            case SeedStrategy.CYCLOMATIC_COMPLEXITY:
                 m_func = lambda code: cc_visit(code)[0].complexity
-            case "halstead_volume":
+            case SeedStrategy.HALSTEAD_VOLUME:
                 m_func = lambda code: h_visit(code).total.volume
-            case "logical_lines":
+            case SeedStrategy.LOGICAL_LINES:
                 m_func = lambda code: analyze(code).lloc
             case _:
                 raise ValueError(f"Unknown metric: {metric}")
@@ -89,13 +96,17 @@ class DatasetManager:
         #   """
         if self.dataset_name == Dataset.HUMANEVAL:
             for problem_id in self.dataset:
-                self.dataset[problem_id]["formatted_prompt"] = self.dataset[problem_id]["prompt"]
+                self.dataset[problem_id]["formatted_prompt"] = self.dataset[problem_id][
+                    "prompt"
+                ]
         elif self.dataset_name == Dataset.MBPP:
             for problem_id in self.dataset:
                 prompt = self.dataset[problem_id]["prompt"]
                 canonical = self.dataset[problem_id]["canonical_solution"]
                 entry_point = self.dataset[problem_id]["entry_point"]
-                function_declaration = get_function_declaration_line(canonical, entry_point)
+                function_declaration = get_function_declaration_line(
+                    canonical, entry_point
+                )
                 indented_instructions = textwrap.indent(prompt, IDENT)
                 formatted = f"{function_declaration}\n{indented_instructions}"
                 self.dataset[problem_id]["formatted_prompt"] = formatted

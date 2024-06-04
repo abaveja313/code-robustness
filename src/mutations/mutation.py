@@ -32,10 +32,18 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
                 post_processed_original = Processors.postprocess_mutation(original)
                 post_processed_mutated = Processors.postprocess_mutation(m)
             except Exception:
-                logger.warning("Failed to postprocess sequence:\nOriginal:\n{}\nMutation:\n{}", original, m)
+                logger.warning(
+                    "Failed to postprocess sequence:\nOriginal:\n{}\nMutation:\n{}",
+                    original,
+                    m,
+                )
                 continue
 
-            parsed = parse_stem(post_processed_original, post_processed_mutated, extra_skips=self.stem_extra_skips)
+            parsed = parse_stem(
+                post_processed_original,
+                post_processed_mutated,
+                extra_skips=self.stem_extra_skips,
+            )
             if not parsed:
                 logger.warning("Skipping mutation as it had no effect")
                 continue

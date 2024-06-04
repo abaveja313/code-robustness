@@ -30,7 +30,9 @@ class ParensProcessor:
         nodes = []
 
         def find_nodes(node):
-            if isinstance(node, tuple(self.node_types)) and not is_node_within_docstring(node, self.docstring_ranges):
+            if isinstance(
+                node, tuple(self.node_types)
+            ) and not is_node_within_docstring(node, self.docstring_ranges):
                 nodes.append(node)
             for child in ast.iter_child_nodes(node):
                 find_nodes(child)
@@ -53,4 +55,3 @@ class AddParensTransformer(RegisteredTransformation, category=CRT.code_style):
             return list(parens_processor.find_and_paren_nodes_recursive())
 
         return process
-

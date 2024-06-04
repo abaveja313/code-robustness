@@ -24,15 +24,15 @@ class Processors:
     @staticmethod
     def postprocess_mutation(sequence: str) -> str:
         transforms = (
-            lambda code: code.rstrip('\n'),
+            lambda code: code.rstrip("\n"),
             lambda code: black.format_str(
                 code,
                 mode=black.Mode(
                     string_normalization=True,
                     line_length=120,
-                    magic_trailing_comma=False
-                )
-            )
+                    magic_trailing_comma=False,
+                ),
+            ),
         )
         try:
             for transform in transforms:
@@ -45,17 +45,16 @@ class Processors:
     @staticmethod
     def postprocess_eval(sequence: str):
         transforms = (
-            lambda code: code.rstrip('\n'),
+            lambda code: code.rstrip("\n"),
             lambda c: remove_comments_and_docstrings(c, remove_docstrings=False),
             lambda code: black.format_str(
                 code,
                 mode=black.Mode(
                     string_normalization=True,
                     line_length=120,
-                    magic_trailing_comma=False
-                )
-            )
-
+                    magic_trailing_comma=False,
+                ),
+            ),
         )
 
         try:
@@ -67,10 +66,12 @@ class Processors:
         return sequence
 
     @staticmethod
-    def split_sequences(sequences: list[str], sids: list[str], samples_per_sequence: int):
+    def split_sequences(
+        sequences: list[str], sids: list[str], samples_per_sequence: int
+    ):
         output = {}
         sid = 0
         for idx in range(0, len(sequences), samples_per_sequence):
-            output[sids[sid]] = sequences[idx:idx + samples_per_sequence]
+            output[sids[sid]] = sequences[idx : idx + samples_per_sequence]
             sid += 1
         return output

@@ -14,13 +14,13 @@ from shared.structs import BenchmarkResult, SolutionType, MutatedStem
 
 class StemEvaluator:
     def __init__(
-            self,
-            inference_engine: InferenceEngine,
-            dataset_manager: DatasetManager,
-            problem_id: str,
-            num_samples: int = 100,
-            k: Tuple[int, ...] = (1, 5, 10),
-            base_only: bool = False
+        self,
+        inference_engine: InferenceEngine,
+        dataset_manager: DatasetManager,
+        problem_id: str,
+        num_samples: int = 100,
+        k: Tuple[int, ...] = (1, 5, 10),
+        base_only: bool = False,
     ):
         self.inference = inference_engine
         self.dataset_manager = dataset_manager
@@ -30,15 +30,21 @@ class StemEvaluator:
         self.base_only = base_only
 
     def compute_log_pass_ratio(
-            self, stem: MutatedStem, result: BenchmarkResult, excluded_tests: list[int], epsilon=1e-6,
+        self,
+        stem: MutatedStem,
+        result: BenchmarkResult,
+        excluded_tests: list[int],
+        epsilon=1e-6,
     ):
-        logger.info("Computing Log Pass Ratio for:\n===========\nOld:\n{}\n\nMutated:\n{}",
-                    stem.original_stem, stem.mutated_stem)
+        logger.info(
+            "Computing Log Pass Ratio for:\n===========\nOld:\n{}\n\nMutated:\n{}",
+            stem.original_stem,
+            stem.mutated_stem,
+        )
         result.add_stem(stem)
 
         predictions, errors = self.inference.complete_stems(
-            stem=stem,
-            num_samples=self.num_samples
+            stem=stem, num_samples=self.num_samples
         )
 
         logger.warning("Found {} errors during postprocessing", len(errors))
@@ -47,17 +53,27 @@ class StemEvaluator:
             result.add_example(
                 example=error.code,
                 solution_type=SolutionType.BAD_PROCESS,
-                mutated=error.mutated
+                mutated=error.mutated,
             )
 
-        original_predictions = predictions['original'].get_code()
-        mutated_predictions = predictions['mutated'].get_code()
+        original_predictions = predictions["original"].get_code()
+        mutated_predictions = predictions["mutated"].get_code()
 
         original_pass_at = self.compute_pass_at_threaded(
-            stem.original_stem, original_predictions, result, "Original", excluded_tests, mutated=False
+            stem.original_stem,
+            original_predictions,
+            result,
+            "Original",
+            excluded_tests,
+            mutated=False,
         )
         mutated_pass_at = self.compute_pass_at_threaded(
-            stem.mutated_stem, mutated_predictions, result, "Mutated", excluded_tests, mutated=True
+            stem.mutated_stem,
+            mutated_predictions,
+            result,
+            "Mutated",
+            excluded_tests,
+            mutated=True,
         )
         result.add_pass_ats(original_pass_at, mutated_pass_at)
 
@@ -65,7 +81,7 @@ class StemEvaluator:
         for k in self.k:
             # add epsilon to avoid division by zero
             pass_at_ratios[f"pass@{k}"] = mutated_pass_at[k] / (
-                    original_pass_at[k] + epsilon
+                original_pass_at[k] + epsilon
             )
 
         result.pass_at_ratio = pass_at_ratios
@@ -87,9 +103,18 @@ class StemEvaluator:
         eval_results["solution"] = solution
         return eval_results
 
-    def compute_pass_at_threaded(self, stem: str, solutions: List[str], result: BenchmarkResult, desc: str,
-                                 excluded_tests: List[int], mutated=False, initial_timeout=300,
-                                 retry_timeout_increment=10, retries=3):
+    def compute_pass_at_threaded(
+        self,
+        stem: str,
+        solutions: List[str],
+        result: BenchmarkResult,
+        desc: str,
+        excluded_tests: List[int],
+        mutated=False,
+        initial_timeout=300,
+        retry_timeout_increment=10,
+        retries=3,
+    ):
         num_passed = 0
         remaining_solutions = solutions
 
@@ -98,13 +123,15 @@ class StemEvaluator:
                 break
 
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-                future_solution_mapping = {executor.submit(self.check_correctness_wrapper, solution): solution
-                                           for solution in remaining_solutions}
+                future_solution_mapping = {
+                    executor.submit(self.check_correctness_wrapper, solution): solution
+                    for solution in remaining_solutions
+                }
 
                 try:
                     done, not_done = wait(
                         future_solution_mapping.keys(),
-                        timeout=initial_timeout + attempt * retry_timeout_increment
+                        timeout=initial_timeout + attempt * retry_timeout_increment,
                     )
 
                     for future in done:
@@ -116,37 +143,71 @@ class StemEvaluator:
                             if not self.base_only:
                                 total += eval_results["plus"][1]
 
-                            filtered_total = [total[idx] for idx in range(len(total)) if idx not in excluded_tests]
-                            logger.debug("Removing excluded tests: {} -> {}", excluded_tests, filtered_total)
+                            filtered_total = [
+                                total[idx]
+                                for idx in range(len(total))
+                                if idx not in excluded_tests
+                            ]
+                            logger.debug(
+                                "Removing excluded tests: {} -> {}",
+                                excluded_tests,
+                                filtered_total,
+                            )
 
                             if len(total) == 0:
-                                logger.warning("Solution has invalid syntax:\n{}", solution)
-                                result.add_example(solution, SolutionType.BAD_SYNTAX, mutated)
+                                logger.warning(
+                                    "Solution has invalid syntax:\n{}", solution
+                                )
+                                result.add_example(
+                                    solution, SolutionType.BAD_SYNTAX, mutated
+                                )
 
                             passed = [i for i in filtered_total if i == 1]
 
                             if len(passed) == len(filtered_total):
-                                logger.info("Solution passed:{}\n{}", filtered_total, solution)
+                                logger.info(
+                                    "Solution passed:{}\n{}", filtered_total, solution
+                                )
                                 num_passed += 1
-                                result.add_example(solution, SolutionType.PASSED, mutated)
+                                result.add_example(
+                                    solution, SolutionType.PASSED, mutated
+                                )
                             else:
-                                logger.warning("Solution failed:{}\n{}", filtered_total, solution)
-                                result.add_example(solution, SolutionType.FAILED, mutated)
+                                logger.warning(
+                                    "Solution failed:{}\n{}", filtered_total, solution
+                                )
+                                result.add_example(
+                                    solution, SolutionType.FAILED, mutated
+                                )
 
                         except Exception as e:
-                            logger.error("Error processing solution: {}\n{}", solution, e)
+                            logger.error(
+                                "Error processing solution: {}\n{}", solution, e
+                            )
 
-                    remaining_solutions = [future_solution_mapping[future] for future in not_done]
+                    remaining_solutions = [
+                        future_solution_mapping[future] for future in not_done
+                    ]
                     if not not_done:
                         break  # All futures completed successfully within the timeout
 
-                    logger.warning("Timeout occurred. Retrying {} solutions... ({}/{})", len(not_done), attempt + 1,
-                                   retries)
+                    logger.warning(
+                        "Timeout occurred. Retrying {} solutions... ({}/{})",
+                        len(not_done),
+                        attempt + 1,
+                        retries,
+                    )
 
                 except TimeoutError:
-                    logger.error("Timeout error occurred on attempt {}. Retrying... ({}/{})", attempt + 1, attempt + 1,
-                                 retries)
-                    remaining_solutions = [future_solution_mapping[future] for future in not_done]
+                    logger.error(
+                        "Timeout error occurred on attempt {}. Retrying... ({}/{})",
+                        attempt + 1,
+                        attempt + 1,
+                        retries,
+                    )
+                    remaining_solutions = [
+                        future_solution_mapping[future] for future in not_done
+                    ]
                     continue
                 finally:
                     for future in not_done:

@@ -27,9 +27,12 @@ class IntegerConstantProcessor:
         nodes = []
 
         def find_nodes(node: ast.AST):
-            if (isinstance(node, ast.Constant) and isinstance(node.value, int) and
-                    not isinstance(node.value, bool) and
-                    not is_node_within_docstring(node, self.docstring_ranges)):
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, int)
+                and not isinstance(node.value, bool)
+                and not is_node_within_docstring(node, self.docstring_ranges)
+            ):
                 nodes.append(node)
             for child in ast.iter_child_nodes(node):
                 find_nodes(child)

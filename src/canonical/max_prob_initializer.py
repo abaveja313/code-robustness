@@ -21,15 +21,15 @@ class NoPassingSolutionException(Exception):
 
 class MaxProbInitializer:
     def __init__(
-            self,
-            inference_engine: InferenceEngine,
-            dataset_manager: DatasetManager,
-            problem_id: str,
-            passing_threshold: float = 1.0,
-            num_samples: int = 300,
-            batch_size: int = 50,
-            min_correct_samples: int = 10,
-            base_only: bool = False
+        self,
+        inference_engine: InferenceEngine,
+        dataset_manager: DatasetManager,
+        problem_id: str,
+        passing_threshold: float = 1.0,
+        num_samples: int = 300,
+        batch_size: int = 50,
+        min_correct_samples: int = 10,
+        base_only: bool = False,
     ):
         self.inference_engine = inference_engine
         self.dataset_manager = dataset_manager
@@ -74,7 +74,9 @@ class MaxProbInitializer:
                 continue
 
             passed = [i for i in total if i == 1]
-            solution.failed_tests = [idx for idx in range(len(total)) if total[idx] == 0]
+            solution.failed_tests = [
+                idx for idx in range(len(total)) if total[idx] == 0
+            ]
             pass_ratio = float(len(passed)) / float(len(total))
 
             logger.info("Passing Ratio: {}", pass_ratio)
@@ -92,7 +94,9 @@ class MaxProbInitializer:
         self._print_stats("Failure", failed_stats)
 
         canonical_solution = max(passing_solutions, key=lambda sol: sol.probs)
-        logger.warning(f"Max Probability Solution (Probs={canonical_solution.probs}):\n{canonical_solution.code}")
+        logger.warning(
+            f"Max Probability Solution (Probs={canonical_solution.probs}):\n{canonical_solution.code}"
+        )
         self._print_stats("Success", pass_ratios)
 
         canonical_solution.code = Processors.postprocess_eval(canonical_solution.code)
@@ -106,8 +110,7 @@ class MaxProbInitializer:
             while remaining > 0:
                 to_gen = min(self.batch_size, remaining)
                 samples, errors = self.inference_engine.predict_solutions(
-                    problem_ids=[self.problem_id],
-                    num_samples=self.batch_size
+                    problem_ids=[self.problem_id], num_samples=self.batch_size
                 )
                 logger.warning("Found {} errors", len(errors))
                 batch_solution.add(samples[self.problem_id])
