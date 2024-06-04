@@ -12,6 +12,8 @@ from inference.dataset_manager import DatasetManager
 from inference.predict import InferenceEngine
 from shared.structs import BatchSolution
 
+from src.inference.processors import Processors
+
 
 class NoPassingSolutionException(Exception):
     pass
@@ -43,6 +45,7 @@ class MaxProbInitializer:
     def _canonical_solution(self):
         logger.info(f"Finding Canonical Solution for {self.problem_id}")
         batch: BatchSolution = self.batch_generate_sequences()
+
         passing_solutions = []
         pass_ratios = []
         failed_stats = []
@@ -91,6 +94,8 @@ class MaxProbInitializer:
         canonical_solution = max(passing_solutions, key=lambda sol: sol.probs)
         logger.warning(f"Max Probability Solution (Probs={canonical_solution.probs}):\n{canonical_solution.code}")
         self._print_stats("Success", pass_ratios)
+
+        canonical_solution.code = Processors.postprocess_eval(canonical_solution.code)
         return canonical_solution
 
     def batch_generate_sequences(self):

@@ -14,6 +14,10 @@ class PostprocessingException(Exception):
 
 class Processors:
     @staticmethod
+    def postprocess_canonical(code: str) -> str:
+        return ast.unparse(ast.parse(code))
+
+    @staticmethod
     def preprocess_stem(stem: str) -> str:
         return remove_pass(stem)
 

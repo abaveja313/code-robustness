@@ -11,6 +11,9 @@ from shared.program_utils import parse_stem
 
 
 class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
+    @property
+    def extraneous(self):
+        return False
 
     @property
     def deterministic(self):
@@ -31,7 +34,7 @@ class RegisteredTransformation(RegisteredMixin, ABC, abstract=True):
                 logger.warning("Failed to postprocess sequence:\nOriginal:\n{}\nMutation:\n{}", original, m)
                 continue
 
-            parsed = parse_stem(post_processed_original, post_processed_mutated)
+            parsed = parse_stem(post_processed_original, post_processed_mutated, extraneous=self.extraneous)
             if not parsed:
                 logger.warning("Skipping mutation as it had no effect")
                 continue

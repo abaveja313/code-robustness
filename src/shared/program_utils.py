@@ -1,9 +1,72 @@
+import ast
+import copy
 import io
 import textwrap
 import tokenize
 
+from asttokens import asttokens
+
 IDENT = " " * 4
 MUTATED_COMMENT_PREFIX = "# I am a"
+
+
+class TupleParenthesesTransformer(ast.NodeTransformer):
+    def __init__(self, atok):
+        self.atok = atok
+        self.replacements = []
+
+    def wrap_tuple_with_parens(self, node):
+        if isinstance(node, ast.Tuple):
+            # Retrieve the source code of the tuple
+            tuple_src = self.atok.get_text(node)
+            # Wrap the tuple with parentheses
+            new_tuple_src = f'({tuple_src})'
+            # Save the original and new source code to perform replacement later
+            self.replacements.append((self.atok.get_text_range(node), new_tuple_src))
+
+    def visit_Assign(self, node):
+        self.generic_visit(node)
+        for target in node.targets:
+            self.wrap_tuple_with_parens(target)
+        self.wrap_tuple_with_parens(node.value)
+        return node
+
+    def visit_For(self, node):
+        self.generic_visit(node)
+        self.wrap_tuple_with_parens(node.target)
+        return node
+
+    def visit_With(self, node):
+        self.generic_visit(node)
+        for item in node.items:
+            self.wrap_tuple_with_parens(item.optional_vars)
+        return node
+
+    def visit_FunctionDef(self, node):
+        self.generic_visit(node)
+        for arg in node.args.args:
+            self.wrap_tuple_with_parens(arg)
+        return node
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        for arg in node.args:
+            self.wrap_tuple_with_parens(arg)
+        return node
+
+
+def transform_parenthesis(source_code):
+    atok = asttokens.ASTTokens(source_code, parse=True)
+    tree = atok.tree
+    transformer = TupleParenthesesTransformer(atok)
+    transformer.visit(tree)
+
+    # Apply replacements
+    new_source_code = copy.deepcopy(atok.text)
+    for (start, end), new_tuple_src in sorted(transformer.replacements, key=lambda x: x[0][0], reverse=True):
+        new_source_code = new_source_code[:start] + new_tuple_src + new_source_code[end:]
+
+    return new_source_code
 
 
 def program_concat(stem: str, new_code: str) -> str:
@@ -116,7 +179,7 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
     return "\n".join(cleaned_lines)
 
 
-def parse_stem(old_code: str, new_code: str):
+def parse_stem(old_code: str, new_code: str, extraneous_line: bool = False):
     old_lines = old_code.splitlines()
     new_lines = new_code.splitlines()
     if old_lines == new_lines:
@@ -162,6 +225,9 @@ def parse_stem(old_code: str, new_code: str):
     # Ensure capturing the last line if the loop ended due to different lines
     if new_index < len(new_lines):
         new_index += 1
+        if extraneous_line and new_index < len(new_lines):
+            new_index += 1
+
     if old_index < len(old_lines):
         old_index += 1
 
