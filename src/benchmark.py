@@ -121,7 +121,7 @@ def benchmark(
         completed: List[str] = None,
 ):
     result_manager = GCSResultStorageManager(
-        bucket_name=gcs_bucket_name, project=gcs_project_name
+        model_name=model_name, bucket_name=gcs_bucket_name, project=gcs_project_name
     )
     dataset_manager = DatasetManager(
         dataset=dataset_name, mini=dataset_mini, noextreme=dataset_noextreme
@@ -199,7 +199,7 @@ def cli_benchmark(
             help="Metric to use for finding seed problems.",
         ),
         canonical_passing_threshold: float = typer.Option(
-            0.85, help="Passing threshold for canonical samples.", min=0.0, max=1.0
+            0.95, help="Passing threshold for canonical samples.", min=0.0, max=1.0
         ),
         canonical_samples: int = typer.Option(200, help="Number of canonical samples."),
         canonical_batch_size: int = typer.Option(

@@ -99,7 +99,7 @@ class MaxProbInitializer:
         )
         self._print_stats("Success", pass_ratios)
 
-        canonical_solution.code = Processors.postprocess_eval(canonical_solution.code)
+        canonical_solution.code = Processors.postprocess_canonical(canonical_solution.code)
         return canonical_solution
 
     def batch_generate_sequences(self):
