@@ -174,7 +174,7 @@ def benchmark(
 def cli_benchmark(
         model_name: str = typer.Argument(..., help="The HF name of the model."),
         model_direct_completion: bool = typer.Option(
-            True, help="Whether the model uses direct completion."
+            False, help="Whether the model uses direct completion."
         ),
         model_temp: float = typer.Option(0.5, help="The temperature for the model."),
         model_max_new_tokens: int = typer.Option(

@@ -56,7 +56,7 @@ class InferenceEngine:
             "</s>",
             "\nif __name__",
             "\ndef main(",
-            "\nprint(",
+            "\nprint("
         ]
         self.add_eos_for_task()
         logger.info("Model EOS Terminators: {}", self.eos)
