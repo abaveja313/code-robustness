@@ -88,13 +88,14 @@ class DatasetManager:
         #   prompt
         #   """
         if self.dataset_name == Dataset.HUMANEVAL:
-            return
-
-        for problem_id in self.dataset:
-            prompt = self.dataset[problem_id]["prompt"]
-            canonical = self.dataset[problem_id]["canonical_solution"]
-            entry_point = self.dataset[problem_id]["entry_point"]
-            function_declaration = get_function_declaration_line(canonical, entry_point)
-            indented_instructions = textwrap.indent(prompt, IDENT)
-            formatted = f"{function_declaration}\n{indented_instructions}"
-            self.dataset[problem_id]["formatted_prompt"] = formatted
+            for problem_id in self.dataset:
+                self.dataset[problem_id]["formatted_prompt"] = self.dataset[problem_id]["prompt"]
+        elif self.dataset_name == Dataset.MBPP:
+            for problem_id in self.dataset:
+                prompt = self.dataset[problem_id]["prompt"]
+                canonical = self.dataset[problem_id]["canonical_solution"]
+                entry_point = self.dataset[problem_id]["entry_point"]
+                function_declaration = get_function_declaration_line(canonical, entry_point)
+                indented_instructions = textwrap.indent(prompt, IDENT)
+                formatted = f"{function_declaration}\n{indented_instructions}"
+                self.dataset[problem_id]["formatted_prompt"] = formatted
