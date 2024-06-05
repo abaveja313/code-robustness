@@ -161,6 +161,7 @@ class StemEvaluator:
                                 result.add_example(
                                     solution, SolutionType.BAD_SYNTAX, mutated
                                 )
+                                continue
 
                             passed = [i for i in filtered_total if i == 1]
 
