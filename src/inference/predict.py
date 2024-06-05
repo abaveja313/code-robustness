@@ -15,16 +15,16 @@ class InferenceEngine:
     _MAGIC_SPLITTER_ = "-[[]]-this-is-really-our-highest-priority-[[]]-"
 
     def __init__(
-        self,
-        model_name: str,
-        dataset_manager: DatasetManager,
-        direct_completion: bool = False,
-        dtype: str = "bfloat16",
-        trust_remote_code: bool = False,
-        enable_prefix_caching: bool = True,
-        max_model_len: int = 2048,
-        model_params: dict[str, Any] = None,
-        **sampling_params,
+            self,
+            model_name: str,
+            dataset_manager: DatasetManager,
+            direct_completion: bool = False,
+            dtype: str = "bfloat16",
+            trust_remote_code: bool = False,
+            enable_prefix_caching: bool = True,
+            max_model_len: int = 2048,
+            model_params: dict[str, Any] = None,
+            **sampling_params,
     ):
         model_kwargs = {
             "tensor_parallel_size": int(os.getenv("VLLM_N_GPUS", 1)),
@@ -176,6 +176,7 @@ class InferenceEngine:
                 except Exception:
                     logger.exception(f"Error postprocessing solution:\n{solution.code}")
                     errors.append(PostprocessingException(code=solution.code))
+                    solutions.append(Solution(code='', probs=0.0))
 
             post_processed[problem_id] = BatchSolution(solutions=solutions)
         return post_processed, errors
@@ -214,5 +215,6 @@ class InferenceEngine:
                             code=solution.code, mutated=stem_name == "mutated"
                         )
                     )
+                    solutions.append(Solution(code='', probs=0.0))
             post_processed[stem_name] = BatchSolution(solutions=solutions)
         return post_processed, errors
