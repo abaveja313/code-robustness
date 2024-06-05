@@ -28,7 +28,7 @@ class Processors:
             lambda code: black.format_str(
                 code,
                 mode=black.Mode(
-                    string_normalization=True,
+                    string_normalization=False,
                     line_length=120,
                     magic_trailing_comma=False,
                 ),
@@ -50,7 +50,7 @@ class Processors:
             lambda code: black.format_str(
                 code,
                 mode=black.Mode(
-                    string_normalization=True,
+                    string_normalization=False,
                     line_length=120,
                     magic_trailing_comma=False,
                 ),

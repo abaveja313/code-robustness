@@ -59,7 +59,7 @@ class StringQuoteSingleTransformer(
 
 
 class StringQuoteDoubleTransformer(
-    RegisteredTransformation, category=CRT.code_style, disabled=True
+    RegisteredTransformation, category=CRT.code_style, disabled=False
 ):
     @property
     def deterministic(self):
