@@ -1,6 +1,6 @@
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed, wait, TimeoutError
+from concurrent.futures import ThreadPoolExecutor, wait, TimeoutError
 from typing import Tuple, List
 
 from evalplus.evaluate import check_correctness
@@ -98,7 +98,7 @@ class StemEvaluator:
             problem=self.dataset_manager.get_problem(self.problem_id),
             solution=solution,
             base_only=self.base_only,
-            gt_time_limit_factor=45.0,
+            gt_time_limit_factor=4.0,
         )
         eval_results["solution"] = solution
         return eval_results

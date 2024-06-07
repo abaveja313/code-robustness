@@ -24,7 +24,7 @@ class InferenceEngine:
             enable_prefix_caching: bool = True,
             max_model_len: int = 2048,
             model_params: dict[str, Any] = None,
-            **sampling_params,
+            sampling_args: dict[str, Any] = None,
     ):
         model_kwargs = {
             "tensor_parallel_size": int(os.getenv("VLLM_N_GPUS", 1)),
@@ -58,11 +58,13 @@ class InferenceEngine:
             "\ndef main(",
             "\nprint("
         ]
+
         self.add_eos_for_task()
         logger.info("Model EOS Terminators: {}", self.eos)
 
-        sampling_params["stop"] = self.eos
-        self.sampling_args = SamplingParams(**sampling_params)
+        self.sampling_params = sampling_args or {}
+        sampling_args["stop"] = self.eos
+        self.sampling_args = SamplingParams(**sampling_args)
 
     def add_eos_for_task(self):
         if self.direct_completion:
@@ -113,7 +115,7 @@ class InferenceEngine:
             "```"
         )
         response = (
-            "Below is the rest of the function body such that it passes the corresponding tests:\n:"
+            "Below is the rest of the function body such that it passes the corresponding tests:\n"
             "```python\n"
             f"{stem.strip()}\n"
             f"{self._MAGIC_SPLITTER_}"

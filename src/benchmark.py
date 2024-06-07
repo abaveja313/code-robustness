@@ -133,9 +133,11 @@ def benchmark(
         direct_completion=model_direct_completion,
         dtype=model_dtype,
         trust_remote_code=False,
-        temperature=model_temp,
-        top_p=model_top_p,
-        max_tokens=model_max_new_tokens,
+        sampling_args=dict(
+            temperature=model_temp,
+            top_p=model_top_p,
+            max_tokens=model_max_new_tokens
+        )
     )
 
     if seed_problems is None:
@@ -181,8 +183,9 @@ def cli_benchmark(
             1024, help="Maximum number of new tokens the model can generate."
         ),
         model_dtype: str = typer.Option("bfloat16", help="Data type used by the model."),
+        # Codex used 0.95
         model_top_p: float = typer.Option(
-            0.9, help="Top-p sampling parameter for the model.", min=0.0, max=1.0
+            0.95, help="Top-p sampling parameter for the model.", min=0.0, max=1.0
         ),
         base_only: bool = typer.Option(False, help="Whether to evaluate base model only."),
         dataset_name: Dataset = typer.Option(Dataset.MBPP, help="The name of the dataset."),
