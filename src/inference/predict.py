@@ -1,11 +1,11 @@
-import os
 from typing import Any
 
+import numpy as np
 from loguru import logger
+from openai import OpenAI
 from transformers import AutoTokenizer
-from vllm import SamplingParams, LLM
 
-from inference.dataset_manager import DatasetManager, Dataset
+from inference.dataset_manager import DatasetManager
 from inference.processors import Processors, PostprocessingException
 from shared.program_utils import program_concat
 from shared.structs import MutatedStem, Solution, BatchSolution
@@ -18,36 +18,19 @@ class InferenceEngine:
             self,
             model_name: str,
             dataset_manager: DatasetManager,
-            direct_completion: bool = False,
-            dtype: str = "bfloat16",
-            trust_remote_code: bool = False,
-            enable_prefix_caching: bool = True,
-            max_model_len: int = 2048,
-            model_params: dict[str, Any] = None,
+            server_url: str,
             sampling_args: dict[str, Any] = None,
+            top_p: float = 0.95,
+            max_tokens: int = 1024
     ):
-        model_kwargs = {
-            "tensor_parallel_size": int(os.getenv("VLLM_N_GPUS", 1)),
-            "dtype": dtype,
-            "trust_remote_code": trust_remote_code,
-            "max_model_len": max_model_len,
-            "enable_prefix_caching": enable_prefix_caching,
-            "model": model_name,
-        }
+        self.llm = OpenAI(
+            api_key="EMPTY",
+            base_url=server_url
+        )
+        models = self.llm.models.list()
+        self.model_name = models.data[0].id
 
-        if model_params is not None:
-            model_kwargs.update(model_params)
-
-        logger.info("Using model '{}' with params {}".format(model_name, model_kwargs))
-
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-        if direct_completion is None:
-            self.direct_completion = self.tokenizer.chat_template is not None
-        else:
-            self.direct_completion = direct_completion
-
-        self.llm = LLM(**model_kwargs)
+        logger.info("Using model '{}' with params {}".format(model_name, sampling_args))
 
         self.dataset = dataset_manager
         self.eos = [
@@ -58,22 +41,21 @@ class InferenceEngine:
             "\ndef main(",
             "\nprint("
         ]
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
         self.add_eos_for_task()
         logger.info("Model EOS Terminators: {}", self.eos)
 
         self.sampling_params = sampling_args or {}
-        sampling_args["stop"] = self.eos
-        self.sampling_args = SamplingParams(**sampling_args)
+        self.sampling_params["stop"] = self.eos
+        self.sampling_params |= {
+            "top_p": top_p,
+            "max_tokens": max_tokens,
+            "logprobs": True
+        }
 
     def add_eos_for_task(self):
-        if self.direct_completion:
-            if self.dataset.dataset_name == Dataset.HUMANEVAL:
-                self.eos += ["\ndef ", "\nclass ", "\nimport ", "\nfrom ", "\nassert "]
-            elif self.dataset.dataset == Dataset.MBPP:
-                self.eos += ["\nclass "]
-        else:
-            self.eos += ["\n```\n", "```", "\nassert", "assert"]
+        self.eos += ["\n```\n", "```", "\nassert", "assert"]
 
     def make_function_codegen_prompt(self, problem_id: str) -> str:
         definition = self.dataset.get_problem(problem_id)["formatted_prompt"]
@@ -131,85 +113,74 @@ class InferenceEngine:
         ).split(self._MAGIC_SPLITTER_)[0]
         return prompt
 
-    def generate(self, prompts: list[str], num_samples: int):
-        expanded_prompts = []
-        for prompt in prompts:
-            expanded_prompts.extend([prompt] * num_samples)
-
-        vllm_outputs = self.llm.generate(
-            expanded_prompts,
-            self.sampling_args,
-            use_tqdm=False,
+    def generate(self, prompt: str, num_samples: int, temp: float):
+        model_outputs = self.llm.completions.create(
+            model=self.model_name,
+            prompt=prompt,
+            n=num_samples,
+            **(self.sampling_params | {"temperature": temp})
         )
+        sequences = []
+        for output in model_outputs.choices:
+            sequence = {
+                'text': output.text,
+                'cumulative_logprob': np.sum(output.logprobs.token_logprobs)
+            }
+            sequences.append(sequence)
 
-        outputs = [output.outputs[0] for output in vllm_outputs]
-        return outputs
+        return sequences
 
-    def predict_solutions(self, problem_ids: list[str], num_samples: int = 200):
-        if self.direct_completion:
-            prompts = [
-                self.dataset.get_problem(problem_id)["formatted_prompt"]
-                for problem_id in problem_ids
-            ]
-        else:
-            prompts = [
-                self.make_function_codegen_prompt(problem_id)
-                for problem_id in problem_ids
-            ]
+    def predict_solutions(self, problem_id: str, num_samples: int = 200, temperature: float = 0.7):
+        prompt = self.make_function_codegen_prompt(problem_id)
 
-        for prompt in prompts:
-            logger.debug("Prompt:\n{}", prompt)
+        logger.debug("Prompt:\n{}", prompt)
 
-        vllm_outputs = self.generate(prompts, num_samples)
-        sequences = Processors.split_sequences(vllm_outputs, problem_ids, num_samples)
+        sequences = self.generate(prompt, num_samples, temperature)
 
-        post_processed, errors = {}, []
-        for problem_id in sequences:
-            problem = self.dataset.get_problem(problem_id)
-            solutions = []
-            for sequence in sequences[problem_id]:
-                solution = Solution(
-                    code=program_concat(problem["formatted_prompt"], sequence.text),
-                    probs=sequence.cumulative_logprob,
-                )
-                try:
-                    solution.post_process()
-                    solutions.append(solution)
-                except Exception:
-                    logger.exception(f"Error postprocessing solution:\n{solution.code}")
-                    errors.append(PostprocessingException(code=solution.code))
-                    solutions.append(Solution(code='', probs=0.0))
+        errors = []
+        batch_solution = BatchSolution()
+        problem = self.dataset.get_problem(problem_id)
+        for sequence in sequences:
+            solution = Solution(
+                code=program_concat(problem["formatted_prompt"], sequence['text']),
+                probs=sequence['cumulative_logprob']
+            )
+            try:
+                solution.post_process()
+                batch_solution.add_solution(solution)
+            except Exception:
+                logger.exception(f"Error postprocessing solution:\n{solution.code}")
+                errors.append(PostprocessingException(code=solution.code))
+                batch_solution.add_solution(Solution(code='', probs=0.0))
 
-            post_processed[problem_id] = BatchSolution(solutions=solutions)
-        return post_processed, errors
+        return batch_solution, errors
 
-    def complete_stems(self, stem: MutatedStem, num_samples: int = 200):
+    def complete_stems(self, stem: MutatedStem, temperature: float, num_samples: int = 200):
         prompts = [
             Processors.preprocess_stem(s)
             for s in [stem.original_stem, stem.mutated_stem]
         ]
-        if not self.direct_completion:
-            prompts = [self.make_stem_completion_prompt(s) for s in prompts]
+
+        prompts = [self.make_stem_completion_prompt(s) for s in prompts]
 
         for prompt in prompts:
             logger.debug("Prompt:\n{}", prompt)
 
-        vllm_outputs = self.generate(prompts, num_samples)
-        sequences = Processors.split_sequences(
-            vllm_outputs, ["original", "mutated"], num_samples
-        )
+        batch_solutions = dict(original=BatchSolution(), mutated=BatchSolution())
 
-        post_processed, errors = {}, []
-        for stem_name, stem_val in stem.as_tuple():
-            solutions = []
+        original_outputs = self.generate(prompts[0], num_samples, temperature)
+        mutated_outputs = self.generate(prompts[1], num_samples, temperature)
+
+        errors = []
+        for prompt, sequences, stem_name in zip(prompts, [original_outputs, mutated_outputs], ["original", "mutated"]):
             for sequence in sequences[stem_name]:
                 solution = Solution(
-                    code=program_concat(stem_val, sequence.text),
-                    probs=sequence.cumulative_logprob,
+                    code=program_concat(prompt, sequence['text']),
+                    probs=sequence['cumulative_logprob'],
                 )
                 try:
                     solution.post_process()
-                    solutions.append(solution)
+                    batch_solutions[stem_name].add_solution(solution)
                 except Exception:
                     logger.exception(f"Error postprocessing solution:\n{solution.code}")
                     errors.append(
@@ -217,6 +188,5 @@ class InferenceEngine:
                             code=solution.code, mutated=stem_name == "mutated"
                         )
                     )
-                    solutions.append(Solution(code='', probs=0.0))
-            post_processed[stem_name] = BatchSolution(solutions=solutions)
-        return post_processed, errors
+                    batch_solutions[stem_name].add_solution(Solution(code='', probs=0.0))
+        return batch_solutions, errors

@@ -19,6 +19,10 @@ class GCSResultStorageManager:
         self.bucket_name = bucket_name
         self.gcs = GCSFileSystem(project=project, token=service_account_file)
 
+    def add_all(self, results: list[BenchmarkResult]):
+        for result in results:
+            self.add(result)
+
     def add(self, result: BenchmarkResult):
         logger.info(f"Adding result to GCS")
         json_line = json.dumps(result.__dict__) + "\n"

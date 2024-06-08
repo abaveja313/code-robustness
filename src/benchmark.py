@@ -1,7 +1,8 @@
 import os
 import sys
+from collections import defaultdict
 from itertools import chain
-from typing import List, Tuple
+from typing import List, Dict
 
 import tqdm
 import typer
@@ -28,6 +29,7 @@ app = typer.Typer()
 
 def evaluate_problem(
         inference_engine: InferenceEngine,
+        model_temps: list[float],
         problem_id: str,
         dataset_manager: DatasetManager,
         canonical_samples: int,
@@ -70,6 +72,9 @@ def evaluate_problem(
 
         pbar = tqdm.tqdm(all_mutations)
 
+        evaluate_targets: Dict[str, Dict[str, str]] = defaultdict(dict)
+        results = {}
+
         for mid, mutation in enumerate(pbar):
             pbar.set_description(f"{mutation.__name__}")
             stems: list[MutatedStem] = mutation().get_transformations(
@@ -80,29 +85,31 @@ def evaluate_problem(
                 continue
 
             for sid, stem in enumerate(tqdm.tqdm(stems)):
-                mutation_result = BenchmarkResult(
-                    problem_id=problem_id,
-                    stem_id=str(sid),
-                    mutation_id=str(mid),
-                    mutation=mutation.__name__,
-                )
-                evaluator.compute_log_pass_ratio(
-                    stem,
-                    mutation_result,
-                    excluded_tests=canonical_solution.failed_tests,
-                )
-                logger.info("Result: " + str(mutation_result))
-                mutation_result.compute_metrics()
-                result_manager.add(mutation_result)
+                for tid in model_temps:
+                    ident = f"{problem_id}-{mid}-{sid}-T{tid}"
+                    results[ident] = BenchmarkResult(
+                        problem_id=problem_id,
+                        stem_id=str(sid),
+                        mutation_id=str(mid),
+                        mutation=mutation.__name__,
+                    )
+
+                    completions = evaluator.generate_sequences(stem, results[ident])
+                    evaluate_targets[ident]['original'] = completions['original']
+                    evaluate_targets[ident]['mutated'] = completions['mutated']
+
+        logger.info("Completed generating completions for all mutations... evaluating")
+        evaluator.evaluate(evaluate_targets, results)
+        logger.info("Uploading results to GCP")
+        result_manager.add_all(list(results.values()))
 
 
 def benchmark(
         model_name: str,
-        model_direct_completion: bool,
-        model_temp: float,
         dataset_name: str,
+        inference_server_url: str,
         model_max_new_tokens: int = 1024,
-        model_dtype: str = "bfloat16",
+        model_temps: list[float] = (0.2, 0.5, 0.8),
         model_top_p: float = 0.9,
         base_only: bool = False,
         dataset_mini: bool = True,
@@ -110,7 +117,7 @@ def benchmark(
         canonical_passing_threshold: float = 0.85,
         canonical_samples: int = 200,
         canonical_batch_size: int = 50,
-        scoring_samples: int = 200,
+        scoring_samples: int = 100,
         min_correct_samples: int = 10,
         seed_problems_k: int = 5,
         seed_problem_metric: str = "cyclomatic_complexity",
@@ -130,14 +137,11 @@ def benchmark(
     inference_engine = InferenceEngine(
         model_name=model_name,
         dataset_manager=dataset_manager,
-        direct_completion=model_direct_completion,
-        dtype=model_dtype,
-        trust_remote_code=False,
         sampling_args=dict(
-            temperature=model_temp,
             top_p=model_top_p,
             max_tokens=model_max_new_tokens
-        )
+        ),
+        server_url=inference_server_url
     )
 
     if seed_problems is None:
@@ -175,14 +179,10 @@ def benchmark(
 @app.command()
 def cli_benchmark(
         model_name: str = typer.Argument(..., help="The HF name of the model."),
-        model_direct_completion: bool = typer.Option(
-            False, help="Whether the model uses direct completion."
-        ),
-        model_temp: float = typer.Option(0.5, help="The temperature for the model."),
+        model_temps: list[float] = typer.Option((0.5,), help="Temperatures to evaluate at."),
         model_max_new_tokens: int = typer.Option(
             1024, help="Maximum number of new tokens the model can generate."
         ),
-        model_dtype: str = typer.Option("bfloat16", help="Data type used by the model."),
         # Codex used 0.95
         model_top_p: float = typer.Option(
             0.95, help="Top-p sampling parameter for the model.", min=0.0, max=1.0
@@ -223,11 +223,9 @@ def cli_benchmark(
 ):
     benchmark(
         model_name=model_name,
-        model_direct_completion=model_direct_completion,
-        model_temp=model_temp,
+        model_temps=model_temps,
         dataset_name=dataset_name,
         model_max_new_tokens=model_max_new_tokens,
-        model_dtype=model_dtype,
         model_top_p=model_top_p,
         base_only=base_only,
         dataset_mini=dataset_mini,

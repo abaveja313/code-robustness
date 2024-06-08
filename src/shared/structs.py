@@ -21,6 +21,9 @@ class BatchSolution:
     def get_code(self):
         return [solution.code for solution in self.solutions]
 
+    def add_solution(self, solution: Solution):
+        self.solutions.append(solution)
+
     def add(self, other: "BatchSolution"):
         self.solutions.extend(other.solutions)
 
@@ -30,10 +33,6 @@ class MutatedStem:
     original_stem: str
     mutated_stem: str
 
-    def as_tuple(self):
-        return [("original", self.original_stem), ("mutated", self.mutated_stem)]
-
-
 class SolutionType:
     PASSED = "passed"
     FAILED = "failed"
@@ -41,12 +40,12 @@ class SolutionType:
     BAD_PROCESS = "bad_post_process"
     ERROR = "error"
 
-    _ALL_TYPES = (PASSED, FAILED, BAD_SYNTAX, BAD_PROCESS, ERROR)
+    ALL_TYPES = (PASSED, FAILED, BAD_SYNTAX, BAD_PROCESS, ERROR)
 
 
 def create_examples():
     examples = {}
-    for key in SolutionType._ALL_TYPES:
+    for key in SolutionType.ALL_TYPES:
         examples.setdefault(key, {"original": [], "mutated": []})
     return examples
 
@@ -57,11 +56,13 @@ class BenchmarkResult:
     mutation: str
     mutation_id: str
     stem_id: str
+    temp: float
     original_prefix: str = None
     mutated_prefix: str = None
     pass_at_original: dict[int, Any] = field(default_factory=dict)
     pass_at_mutated: dict[int, Any] = field(default_factory=dict)
     pass_at_ratio: dict[str, float] = field(default_factory=dict)
+    pass_at_diff: dict[str, float] = field(default_factory=dict)
     average_levenshtein: float = None
     examples: dict[str, dict[str, list[str]]] = field(
         default_factory=create_examples, repr=False
@@ -72,7 +73,7 @@ class BenchmarkResult:
         self.mutated_prefix = stem.mutated_stem
 
     def add_pass_ats(
-        self, pass_at_original: dict[int, Any], pass_at_mutated: dict[int, Any]
+            self, pass_at_original: dict[int, Any], pass_at_mutated: dict[int, Any]
     ):
         self.pass_at_original = pass_at_original
         self.pass_at_mutated = pass_at_mutated

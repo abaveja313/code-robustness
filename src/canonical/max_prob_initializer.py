@@ -44,7 +44,9 @@ class MaxProbInitializer:
 
     def _canonical_solution(self):
         logger.info(f"Finding Canonical Solution for {self.problem_id}")
-        batch: BatchSolution = self.batch_generate_sequences()
+        batch: BatchSolution = self.inference_engine.predict_solutions(
+            problem_id=self.problem_id
+        )
 
         passing_solutions = []
         pass_ratios = []
@@ -59,7 +61,7 @@ class MaxProbInitializer:
                 problem=self.problem,
                 solution=solution.code,
                 base_only=self.base_only,
-                gt_time_limit_factor=45.0,
+                gt_time_limit_factor=4.0,
             )
             logger.debug("Results: {}", eval_results)
 
@@ -101,23 +103,6 @@ class MaxProbInitializer:
 
         canonical_solution.code = Processors.postprocess_canonical(canonical_solution.code)
         return canonical_solution
-
-    def batch_generate_sequences(self):
-        batch_solution = BatchSolution()
-        remaining = self.num_samples
-
-        with tqdm.tqdm(total=self.num_samples, desc="Generating sequences") as pbar:
-            while remaining > 0:
-                to_gen = min(self.batch_size, remaining)
-                samples, errors = self.inference_engine.predict_solutions(
-                    problem_ids=[self.problem_id], num_samples=self.batch_size
-                )
-                logger.warning("Found {} errors", len(errors))
-                batch_solution.add(samples[self.problem_id])
-                pbar.update(to_gen)
-                remaining -= to_gen
-
-        return batch_solution
 
     def canonical_solution(self):
         cache_file = os.path.join(
