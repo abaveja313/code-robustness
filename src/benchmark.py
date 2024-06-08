@@ -21,8 +21,8 @@ from shared.structs import MutatedStem, BenchmarkResult
 
 logger.remove()
 # Configure the console logger
-logger.add(sys.stdout, level="DEBUG")
-logger.add("logs/output.log", level="INFO")
+logger.add(sys.stdout, level="INFO")
+logger.add("logs/output.log", level="DEBUG")
 
 app = typer.Typer()
 
@@ -42,66 +42,66 @@ def evaluate_problem(
         base_only: bool = False,
 ):
     # Adding a unique file handler for each problem_id
-    with create_problem_logger(problem_id=problem_id):
-        logger.info("Finding canonical solution...")
-        initializer = MaxProbInitializer(
-            inference_engine=inference_engine,
-            problem_id=problem_id,
-            num_samples=canonical_samples,
-            passing_threshold=canonical_passing_threshold,
-            batch_size=canonical_batch_size,
-            min_correct_samples=min_correct_samples,
-            dataset_manager=dataset_manager,
-            base_only=base_only,
+    logger.info("Finding canonical solution...")
+    initializer = MaxProbInitializer(
+        inference_engine=inference_engine,
+        problem_id=problem_id,
+        num_samples=canonical_samples,
+        passing_threshold=canonical_passing_threshold,
+        batch_size=canonical_batch_size,
+        min_correct_samples=min_correct_samples,
+        dataset_manager=dataset_manager,
+        base_only=base_only,
+    )
+
+    canonical_solution = initializer.canonical_solution()
+
+    mutations: list[RegisteredTransformation] = MutationRegistry.get(
+        exclude=exclude_mutation_types
+    )
+    all_mutations = list(chain.from_iterable(mutations))
+    logger.info(f"Found {len(all_mutations)} available mutations")
+    evaluator = StemEvaluator(
+        inference_engine=inference_engine,
+        problem_id=problem_id,
+        num_samples=scoring_samples,
+        dataset_manager=dataset_manager,
+        base_only=base_only,
+    )
+
+    pbar = tqdm.tqdm(all_mutations)
+
+    evaluate_targets: Dict[str, Dict[str, str]] = defaultdict(dict)
+    results = {}
+
+    for mid, mutation in enumerate(pbar):
+        pbar.set_description(f"{mutation.__name__}")
+        stems: list[MutatedStem] = mutation().get_transformations(
+            current_text=canonical_solution.code
         )
+        if len(stems) == 0:
+            logger.info("Skipping mutation as it produced no output")
+            continue
 
-        canonical_solution = initializer.canonical_solution()
+        for sid, stem in enumerate(tqdm.tqdm(stems)):
+            for tid in model_temps:
+                ident = f"{problem_id}-{mid}-{sid}-T{tid}"
+                results[ident] = BenchmarkResult(
+                    problem_id=problem_id,
+                    stem_id=str(sid),
+                    mutation_id=str(mid),
+                    mutation=mutation.__name__,
+                    temp=tid
+                )
 
-        mutations: list[RegisteredTransformation] = MutationRegistry.get(
-            exclude=exclude_mutation_types
-        )
-        all_mutations = list(chain.from_iterable(mutations))
-        logger.info(f"Found {len(all_mutations)} available mutations")
-        evaluator = StemEvaluator(
-            inference_engine=inference_engine,
-            problem_id=problem_id,
-            num_samples=scoring_samples,
-            dataset_manager=dataset_manager,
-            base_only=base_only,
-        )
+                completions = evaluator.generate_sequences(stem, results[ident])
+                evaluate_targets[ident]['original'] = completions['original']
+                evaluate_targets[ident]['mutated'] = completions['mutated']
 
-        pbar = tqdm.tqdm(all_mutations)
-
-        evaluate_targets: Dict[str, Dict[str, str]] = defaultdict(dict)
-        results = {}
-
-        for mid, mutation in enumerate(pbar):
-            pbar.set_description(f"{mutation.__name__}")
-            stems: list[MutatedStem] = mutation().get_transformations(
-                current_text=canonical_solution.code
-            )
-            if len(stems) == 0:
-                logger.info("Skipping mutation as it produced no output")
-                continue
-
-            for sid, stem in enumerate(tqdm.tqdm(stems)):
-                for tid in model_temps:
-                    ident = f"{problem_id}-{mid}-{sid}-T{tid}"
-                    results[ident] = BenchmarkResult(
-                        problem_id=problem_id,
-                        stem_id=str(sid),
-                        mutation_id=str(mid),
-                        mutation=mutation.__name__,
-                    )
-
-                    completions = evaluator.generate_sequences(stem, results[ident])
-                    evaluate_targets[ident]['original'] = completions['original']
-                    evaluate_targets[ident]['mutated'] = completions['mutated']
-
-        logger.info("Completed generating completions for all mutations... evaluating")
-        evaluator.evaluate(evaluate_targets, results)
-        logger.info("Uploading results to GCP")
-        result_manager.add_all(list(results.values()))
+    logger.info("Completed generating completions for all mutations... evaluating")
+    evaluator.evaluate(evaluate_targets, results)
+    logger.info("Uploading results to GCP")
+    result_manager.add_all(list(results.values()))
 
 
 def benchmark(
