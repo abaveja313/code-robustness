@@ -36,16 +36,19 @@ class StemEvaluator:
             self,
             stem: MutatedStem,
             result: BenchmarkResult,
+            temp: float
     ):
         logger.info(
-            "Completing tests for:\n===========\nOld:\n{}\n\nMutated:\n{}",
+            "Completing tests (@T{}) for:\n===========\nOld:\n{}\n\nMutated:\n{}",
+            temp,
             stem.original_stem,
             stem.mutated_stem,
         )
         result.add_stem(stem)
 
         predictions, errors = self.inference.complete_stems(
-            stem=stem, num_samples=self.num_samples
+            stem=stem, num_samples=self.num_samples,
+            temperature=temp
         )
 
         logger.warning("Found {} errors during postprocessing", len(errors))
