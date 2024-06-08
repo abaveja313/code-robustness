@@ -174,8 +174,9 @@ class InferenceEngine:
         errors = []
         for prompt, sequences, stem_name in zip(prompts, [original_outputs, mutated_outputs], ["original", "mutated"]):
             for sequence in sequences:
+                stem = stem.original_stem if stem_name == "original" else stem.mutated_stem
                 solution = Solution(
-                    code=program_concat(prompt, sequence['text']),
+                    code=program_concat(stem, sequence['text']),
                     probs=sequence['cumulative_logprob'],
                 )
                 try:
