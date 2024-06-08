@@ -85,6 +85,7 @@ def evaluate_problem(
 
         for sid, stem in enumerate(tqdm.tqdm(stems)):
             for tid in model_temps:
+                logger.info("Evaluating at T{}", tid)
                 ident = f"{problem_id}-{mid}-{sid}-T{tid}"
                 results[ident] = BenchmarkResult(
                     problem_id=problem_id,
@@ -94,7 +95,7 @@ def evaluate_problem(
                     temp=tid
                 )
 
-                completions = evaluator.generate_sequences(stem, results[ident])
+                completions = evaluator.generate_sequences(stem, results[ident], tid)
                 evaluate_targets[ident]['original'] = completions['original']
                 evaluate_targets[ident]['mutated'] = completions['mutated']
 
