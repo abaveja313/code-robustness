@@ -2,7 +2,7 @@ import os
 import sys
 from collections import defaultdict
 from itertools import chain
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import tqdm
 import typer
@@ -109,7 +109,7 @@ def benchmark(
         dataset_name: str,
         inference_server_url: str,
         model_max_new_tokens: int = 1024,
-        model_temps: list[float] = (0.2, 0.5, 0.8),
+        model_temps: Tuple[float] = (0.2, 0.5, 0.8),
         model_top_p: float = 0.9,
         base_only: bool = False,
         dataset_mini: bool = True,
@@ -180,7 +180,7 @@ def benchmark(
 @app.command()
 def cli_benchmark(
         model_name: str = typer.Argument(..., help="The HF name of the model."),
-        model_temps: list[float] = typer.Option((0.3, 0.5, 0.7), help="Temperatures to evaluate at."),
+        model_temps: Tuple[float, float, float] = typer.Option((0.3, 0.5, 0.7), help="Temperatures to evaluate at."),
         model_max_new_tokens: int = typer.Option(
             1024, help="Maximum number of new tokens the model can generate."
         ),
