@@ -173,7 +173,7 @@ class InferenceEngine:
 
         errors = []
         for prompt, sequences, stem_name in zip(prompts, [original_outputs, mutated_outputs], ["original", "mutated"]):
-            for sequence in sequences[stem_name]:
+            for sequence in sequences:
                 solution = Solution(
                     code=program_concat(prompt, sequence['text']),
                     probs=sequence['cumulative_logprob'],
