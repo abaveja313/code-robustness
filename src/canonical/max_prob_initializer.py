@@ -21,15 +21,15 @@ class NoPassingSolutionException(Exception):
 
 class MaxProbInitializer:
     def __init__(
-        self,
-        inference_engine: InferenceEngine,
-        dataset_manager: DatasetManager,
-        problem_id: str,
-        passing_threshold: float = 1.0,
-        num_samples: int = 300,
-        batch_size: int = 50,
-        min_correct_samples: int = 10,
-        base_only: bool = False,
+            self,
+            inference_engine: InferenceEngine,
+            dataset_manager: DatasetManager,
+            problem_id: str,
+            passing_threshold: float = 1.0,
+            num_samples: int = 300,
+            batch_size: int = 50,
+            min_correct_samples: int = 10,
+            base_only: bool = False,
     ):
         self.inference_engine = inference_engine
         self.dataset_manager = dataset_manager
@@ -44,7 +44,7 @@ class MaxProbInitializer:
 
     def _canonical_solution(self):
         logger.info(f"Finding Canonical Solution for {self.problem_id}")
-        batch: BatchSolution = self.inference_engine.predict_solutions(
+        batch, errors = self.inference_engine.predict_solutions(
             problem_id=self.problem_id
         )
 

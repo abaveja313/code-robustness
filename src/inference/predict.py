@@ -27,8 +27,8 @@ class InferenceEngine:
             api_key="EMPTY",
             base_url=server_url
         )
-        models = self.llm.models.list()
-        self.model_name = models.data[0].id
+
+        self.model_name = model_name
 
         logger.info("Using model '{}' with params {}".format(model_name, sampling_args))
 

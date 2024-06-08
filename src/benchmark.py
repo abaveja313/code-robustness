@@ -169,6 +169,7 @@ def benchmark(
                 exclude_mutation_types=exclude_mutation_types,
                 result_manager=result_manager,
                 base_only=base_only,
+                model_temps=model_temps
             )
         except NoPassingSolutionException:
             logger.exception(
@@ -179,7 +180,7 @@ def benchmark(
 @app.command()
 def cli_benchmark(
         model_name: str = typer.Argument(..., help="The HF name of the model."),
-        model_temps: list[float] = typer.Option((0.5,), help="Temperatures to evaluate at."),
+        model_temps: list[float] = typer.Option(..., help="Temperatures to evaluate at."),
         model_max_new_tokens: int = typer.Option(
             1024, help="Maximum number of new tokens the model can generate."
         ),
@@ -188,6 +189,7 @@ def cli_benchmark(
             0.95, help="Top-p sampling parameter for the model.", min=0.0, max=1.0
         ),
         base_only: bool = typer.Option(False, help="Whether to evaluate base model only."),
+        inference_server: str = typer.Option("http://localhost:5002", help="Inference server URL."),
         dataset_name: Dataset = typer.Option(Dataset.MBPP, help="The name of the dataset."),
         dataset_mini: bool = typer.Option(
             True, help="Whether to use a mini version of the dataset."
@@ -242,6 +244,7 @@ def cli_benchmark(
         gcs_bucket_name=gcs_bucket_name,
         gcs_project_name=gcs_project_name,
         completed=completed,
+        inference_server_url=inference_server
     )
 
 
