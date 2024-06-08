@@ -99,6 +99,14 @@ def evaluate_problem(
                 evaluate_targets[ident]['original'] = completions['original']
                 evaluate_targets[ident]['mutated'] = completions['mutated']
 
+    with open('evaluate_targets.pkl', 'wb') as f:
+        import pickle
+        pickle.dump(evaluate_targets, f)
+
+    with open('results.pkl', 'wb') as f:
+        import pickle
+        pickle.dump(results, f)
+
     logger.info("Completed generating completions for all mutations... evaluating")
     evaluator.evaluate(evaluate_targets, results)
     logger.info("Uploading results to GCP")
