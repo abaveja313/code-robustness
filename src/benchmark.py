@@ -180,7 +180,7 @@ def benchmark(
 @app.command()
 def cli_benchmark(
         model_name: str = typer.Argument(..., help="The HF name of the model."),
-        model_temps: list[float] = typer.Option(..., help="Temperatures to evaluate at."),
+        model_temps: list[float] = typer.Option((0.3, 0.5, 0.7), help="Temperatures to evaluate at."),
         model_max_new_tokens: int = typer.Option(
             1024, help="Maximum number of new tokens the model can generate."
         ),
