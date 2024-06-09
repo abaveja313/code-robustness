@@ -27,7 +27,8 @@ class GCSResultStorageManager:
         logger.info(f"Adding result to GCS")
         json_line = json.dumps(result.__dict__) + "\n"
 
-        full_path = f"{self.bucket_name}/{self.model_name}/{result.problem_id}_{result.mutation}_{result.stem_id}.jsonl"
+        full_path = (f"{self.bucket_name}/{self.model_name}/{result.problem_id}_{result.mutation}_{result.stem_id}_"
+                     f"{result.temp}.jsonl")
 
         with self.gcs.open(full_path, "w") as f:
             f.write(json_line)

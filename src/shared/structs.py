@@ -33,6 +33,7 @@ class MutatedStem:
     original_stem: str
     mutated_stem: str
 
+
 class SolutionType:
     PASSED = "passed"
     FAILED = "failed"

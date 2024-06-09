@@ -130,7 +130,7 @@ class InferenceEngine:
 
         return sequences
 
-    def predict_solutions(self, problem_id: str, num_samples: int = 200, temperature: float = 0.7):
+    def predict_solutions(self, problem_id: str, num_samples: int = 200, temperature: float = 0.8):
         prompt = self.make_function_codegen_prompt(problem_id)
 
         logger.debug("Prompt:\n{}", prompt)
