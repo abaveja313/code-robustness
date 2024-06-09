@@ -55,7 +55,7 @@ class InferenceEngine:
         }
 
     def add_eos_for_task(self):
-        self.eos += ["\n```\n", "```", "\nassert", "assert"]
+        self.eos += ["\n```\n", "```", "\nassert", "assert", "\ndef", "# Test", "# test", "def test", "def main"]
 
     def make_function_codegen_prompt(self, problem_id: str) -> str:
         definition = self.dataset.get_problem(problem_id)["formatted_prompt"]
