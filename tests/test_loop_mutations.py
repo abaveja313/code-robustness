@@ -35,7 +35,7 @@ class TestEnumerateFor:
 
     def test_enumerate_for_already_enumerated(self):
         code = """
-        for idx, i in enumerate(range(10)):
+        for (idx, i) in enumerate(range(10)):
             print(i)
         """
         expected = []
@@ -43,7 +43,7 @@ class TestEnumerateFor:
 
     def test_enumerate_for_tuple(self):
         code = """
-        for i, j in zip(a, b):
+        for (i, j) in zip(a, b):
             print(i, j)
         """
         expected = """

@@ -139,6 +139,29 @@ class TestCommentsBlock:
         ]
         verify_transformation(BlockCommentsTransformer, code, expected)
 
+    def test_duplicate_lines(self):
+        code = '''
+        def foo():
+            a = 1
+            a = 1
+        '''
+        expected = [
+            """
+            def foo():
+                # I am a block comment
+                # I am a block comment
+                a = 1
+                a = 1
+            """,
+            """
+            def foo():
+                a = 1
+                # I am a block comment
+                # I am a block comment
+                a = 1
+            """
+        ]
+        verify_transformation(BlockCommentsTransformer, code, expected)
     def test_block_comments_docstring(self):
         code = '''
         def factorial(n):
