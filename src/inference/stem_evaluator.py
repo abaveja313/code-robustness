@@ -90,7 +90,7 @@ class StemEvaluator:
                         self.base_only,
                         ident,
                         1,
-                        4.0
+                        8.0
                     )
                     futures.append(executor.submit(check_correctness, *args))
                     completion_id[ident] += 1
@@ -111,6 +111,7 @@ class StemEvaluator:
             threading.Thread(target=stucking_checker).start()
 
             pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
+
             for future in tqdm(as_completed(futures), total=n_samples):
                 result_id, result_type = future_meta_mapping[future]
                 mutated = result_type == "mutated"
@@ -144,6 +145,8 @@ class StemEvaluator:
                     logger.error(
                         "Error processing solution: {}\n{}", solution, e
                     )
+                finally:
+                    remaining.remove(result_id)
 
             for result_id, result_type in pass_stats:
                 stats = pass_stats[(result_id, result_type)]

@@ -1,4 +1,5 @@
 import os
+import pickle
 import sys
 from collections import defaultdict
 from itertools import chain
@@ -16,7 +17,6 @@ from inference.stem_evaluator import StemEvaluator
 from mutations import CRT, RegisteredTransformation
 from mutations.registry import MutationRegistry
 from shared.gcs_storage_manager import GCSResultStorageManager
-from shared.logging_utils import create_problem_logger
 from shared.structs import MutatedStem, BenchmarkResult
 
 logger.remove()
@@ -99,12 +99,11 @@ def evaluate_problem(
                 evaluate_targets[ident]['original'] = completions['original']
                 evaluate_targets[ident]['mutated'] = completions['mutated']
 
-    with open('evaluate_targets.pkl', 'wb') as f:
-        import pickle
+    # Temporary saving in case things go wrong
+    with open('./evaluate_targets.pkl', 'wb') as f:
         pickle.dump(evaluate_targets, f)
 
-    with open('results.pkl', 'wb') as f:
-        import pickle
+    with open('./results.pkl', 'wb') as f:
         pickle.dump(results, f)
 
     logger.info("Completed generating completions for all mutations... evaluating")
