@@ -130,7 +130,7 @@ class StemEvaluator:
                     pass_stats[(result_id, result_type)]['total'] += 1
 
                     if len(total) == 0:
-                        logger.warning("Solution has invalid syntax:\n{}", solution)
+                        logger.warning("Solution has invalid syntax :\n{}", solution)
                         results[result_id].add_example(solution, SolutionType.BAD_SYNTAX, mutated)
                         continue
 
