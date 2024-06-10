@@ -12,8 +12,7 @@ class LongMessageHashFilter:
         self.cache = LRUCache(maxsize=max_cache_size)
         self.lock = threading.Lock()
 
-    def __call__(self, message):
-        record = message.record
+    def __call__(self, record):
         record['extra']['hash'] = ''  # Default
         log_message = record["message"]
 
