@@ -1,4 +1,3 @@
-from shared.logging_utils import get_hash_logger, remove_hash_loggers
 import os
 import threading
 import time
@@ -115,66 +114,62 @@ class StemEvaluator:
             threading.Thread(target=stucking_checker).start()
 
             pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
-            get_hash_logger(logger)
 
-            try:
-                for future in tqdm(as_completed(futures), total=n_samples):
-                    result_id, result_type, k = future_meta_mapping[future]
-                    mutated = result_type == "mutated"
+            for future in tqdm(as_completed(futures), total=n_samples):
+                result_id, result_type, k = future_meta_mapping[future]
+                mutated = result_type == "mutated"
 
-                    try:
-                        eval_results = future.result()
-                        solution: str = eval_results.pop("solution")
+                try:
+                    eval_results = future.result()
+                    solution: str = eval_results.pop("solution")
 
-                        total = eval_results["base"][1]
-                        if not self.base_only:
-                            total += eval_results["plus"][1]
+                    total = eval_results["base"][1]
+                    if not self.base_only:
+                        total += eval_results["plus"][1]
 
-                        pass_stats[(result_id, result_type)]['total'] += 1
+                    pass_stats[(result_id, result_type)]['total'] += 1
 
-                        if len(total) == 0:
-                            logger.trunc_warning("Solution has invalid syntax:\n{}", solution)
-                            results[result_id].add_example(solution, SolutionType.BAD_SYNTAX, mutated)
-                            continue
+                    if len(total) == 0:
+                        logger.warning("Solution has invalid syntax:\n{}", solution)
+                        results[result_id].add_example(solution, SolutionType.BAD_SYNTAX, mutated)
+                        continue
 
-                        passed = [i for i in total if i == 1]
+                    passed = [i for i in total if i == 1]
 
-                        if len(passed) == len(total):
-                            logger.trunc_info("Solution passed:\n{}", solution)
-                            pass_stats[(result_id, result_type)]['pass'] += 1
-                            results[result_id].add_example(solution, SolutionType.PASSED, mutated)
-                        else:
-                            logger.trunc_warning("Solution failed:{}\n{}", total, solution)
-                            results[result_id].add_example(solution, SolutionType.FAILED, mutated)
+                    if len(passed) == len(total):
+                        logger.info("Solution passed:\n{}", solution)
+                        pass_stats[(result_id, result_type)]['pass'] += 1
+                        results[result_id].add_example(solution, SolutionType.PASSED, mutated)
+                    else:
+                        logger.warning("Solution failed:{}\n{}", total, solution)
+                        results[result_id].add_example(solution, SolutionType.FAILED, mutated)
 
-                    except Exception as e:
-                        logger.trunc_error(
-                            "Error processing solution: {}\n{}", solution, e
-                        )
-                    finally:
-                        remaining.remove((result_id, result_type, k))
+                except Exception as e:
+                    logger.error(
+                        "Error processing solution: {}\n{}", solution, e
+                    )
+                finally:
+                    remaining.remove((result_id, result_type, k))
 
-                for result_id, result_type in pass_stats:
-                    stats = pass_stats[(result_id, result_type)]
-                    for k in self.k:
-                        pass_k = pass_at_k(stats['total'], stats['pass'], k)
-                        if result_type == 'original':
-                            results[result_id].pass_at_original[k] = pass_k
-                        else:
-                            results[result_id].pass_at_mutated[k] = pass_k
+            for result_id, result_type in pass_stats:
+                stats = pass_stats[(result_id, result_type)]
+                for k in self.k:
+                    pass_k = pass_at_k(stats['total'], stats['pass'], k)
+                    if result_type == 'original':
+                        results[result_id].pass_at_original[k] = pass_k
+                    else:
+                        results[result_id].pass_at_mutated[k] = pass_k
 
-                for result_id, result in results.items():
-                    result.pass_at_diff = {
-                        k: result.pass_at_mutated[k] - result.pass_at_original[k]
-                        for k in self.k
-                    }
-                    result.pass_at_ratio = {
-                        # Add epsilon to prevent division by 0
-                        k: result.pass_at_mutated[k] / (result.pass_at_original[k] + 1e-6)
-                        for k in self.k
-                    }
-                    result.compute_metrics()
+            for result_id, result in results.items():
+                result.pass_at_diff = {
+                    k: result.pass_at_mutated[k] - result.pass_at_original[k]
+                    for k in self.k
+                }
+                result.pass_at_ratio = {
+                    # Add epsilon to prevent division by 0
+                    k: result.pass_at_mutated[k] / (result.pass_at_original[k] + 1e-6)
+                    for k in self.k
+                }
+                result.compute_metrics()
 
-                    logger.trunc_info("Result for {}:\n{}", result_id, result)
-            finally:
-                remove_hash_loggers(logger)
+                logger.info("Result for {}:\n{}", result_id, result)
