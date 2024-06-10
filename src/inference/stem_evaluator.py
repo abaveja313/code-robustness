@@ -1,3 +1,4 @@
+from shared.logging_utils import get_hash_logger, remove_hash_loggers
 import os
 import threading
 import time
@@ -76,25 +77,28 @@ class StemEvaluator:
             n_samples = 0
             remaining = set()
 
-            for i, result_id in enumerate(tqdm(solutions)):
+            for i, result_id in enumerate(tqdm(solutions.keys())):
                 for j, key in enumerate(solutions[result_id]):
-                    sequence = solutions[result_id][key]
-                    ident = f"{result_id}_{key}"
-                    remaining.add(ident)
-                    args = (
-                        self.dataset_manager.dataset_name,
-                        completion_id[ident],
-                        self.dataset_manager.get_problem(self.problem_id),
-                        sequence,
-                        self.dataset_manager.get_correct(self.problem_id),
-                        self.base_only,
-                        ident,
-                        1,
-                        8.0
-                    )
-                    futures.append(executor.submit(check_correctness, *args))
-                    completion_id[ident] += 1
-                    n_samples += 1
+                    sequences = solutions[result_id][key]
+                    for k, sequence in enumerate(sequences):
+                        ident = (result_id, key, k)
+                        remaining.add(ident)
+                        kwargs = dict(
+                            dataset=self.dataset_manager.dataset_name,
+                            completion_id=completion_id[ident],
+                            problem=self.dataset_manager.get_problem(self.problem_id),
+                            solution=sequence,
+                            expected_output=self.dataset_manager.get_correct(self.problem_id),
+                            fast_check=False,
+                            base_only=self.base_only,
+                            identifier=ident,
+                            min_time_limit=1,
+                            gt_time_limit_factor=5.0
+                        )
+                        futures.append(executor.submit(check_correctness, **kwargs))
+                        future_meta_mapping[futures[-1]] = ident
+                        completion_id[ident] += 1
+                        n_samples += 1
 
             assert n_samples == len(remaining), "Missing problems in unfinished"
 
@@ -111,62 +115,66 @@ class StemEvaluator:
             threading.Thread(target=stucking_checker).start()
 
             pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
+            get_hash_logger(logger)
 
-            for future in tqdm(as_completed(futures), total=n_samples):
-                result_id, result_type = future_meta_mapping[future]
-                mutated = result_type == "mutated"
+            try:
+                for future in tqdm(as_completed(futures), total=n_samples):
+                    result_id, result_type, k = future_meta_mapping[future]
+                    mutated = result_type == "mutated"
 
-                try:
-                    eval_results = future.result()
-                    solution = eval_results.pop("solution")
+                    try:
+                        eval_results = future.result()
+                        solution: str = eval_results.pop("solution")
 
-                    total = eval_results["base"][1]
-                    if not self.base_only:
-                        total += eval_results["plus"][1]
+                        total = eval_results["base"][1]
+                        if not self.base_only:
+                            total += eval_results["plus"][1]
 
-                    pass_stats[(result_id, result_type)]['total'] = len(total)
+                        pass_stats[(result_id, result_type)]['total'] += 1
 
-                    if len(total) == 0:
-                        logger.warning("Solution has invalid syntax:\n{}", solution)
-                        results[result_id].add_example(solution, SolutionType.BAD_SYNTAX, mutated)
-                        continue
+                        if len(total) == 0:
+                            logger.trunc_warning("Solution has invalid syntax:\n{}", solution)
+                            results[result_id].add_example(solution, SolutionType.BAD_SYNTAX, mutated)
+                            continue
 
-                    passed = [i for i in total if i == 1]
+                        passed = [i for i in total if i == 1]
 
-                    if len(passed) == len(total):
-                        logger.info("Solution passed:{}\n{}", total, solution)
-                        pass_stats[(result_id, result_type)]['pass'] += 1
-                        results[result_id].add_example(solution, SolutionType.PASSED, mutated)
-                    else:
-                        logger.warning("Solution failed:{}\n{}", total, solution)
-                        results[result_id].add_example(solution, SolutionType.FAILED, mutated)
+                        if len(passed) == len(total):
+                            logger.trunc_info("Solution passed:\n{}", solution)
+                            pass_stats[(result_id, result_type)]['pass'] += 1
+                            results[result_id].add_example(solution, SolutionType.PASSED, mutated)
+                        else:
+                            logger.trunc_warning("Solution failed:{}\n{}", total, solution)
+                            results[result_id].add_example(solution, SolutionType.FAILED, mutated)
 
-                except Exception as e:
-                    logger.error(
-                        "Error processing solution: {}\n{}", solution, e
-                    )
-                finally:
-                    remaining.remove(result_id)
+                    except Exception as e:
+                        logger.trunc_error(
+                            "Error processing solution: {}\n{}", solution, e
+                        )
+                    finally:
+                        remaining.remove((result_id, result_type, k))
 
-            for result_id, result_type in pass_stats:
-                stats = pass_stats[(result_id, result_type)]
-                for k in self.k:
-                    pass_k = pass_at_k(stats['total'], stats['pass'], k)
-                    if result_type == 'original':
-                        results[result_id].pass_at_original[k] = pass_k
-                    else:
-                        results[result_id].pass_at_mutated[k] = pass_k
+                for result_id, result_type in pass_stats:
+                    stats = pass_stats[(result_id, result_type)]
+                    for k in self.k:
+                        pass_k = pass_at_k(stats['total'], stats['pass'], k)
+                        if result_type == 'original':
+                            results[result_id].pass_at_original[k] = pass_k
+                        else:
+                            results[result_id].pass_at_mutated[k] = pass_k
 
-            for result_id, result in results.items():
-                result.pass_at_diff = {
-                    k: result.pass_at_mutated[k] - result.pass_at_original[k]
-                    for k in self.k
-                }
-                result.pass_at_ratio = {
-                    # Add epsilon to prevent division by 0
-                    k: result.pass_at_mutated[k] / (result.pass_at_original[k] + 1e-6)
-                    for k in self.k
-                }
-                result.compute_metrics()
+                for result_id, result in results.items():
+                    result.pass_at_diff = {
+                        k: result.pass_at_mutated[k] - result.pass_at_original[k]
+                        for k in self.k
+                    }
+                    result.pass_at_ratio = {
+                        # Add epsilon to prevent division by 0
+                        k: result.pass_at_mutated[k] / (result.pass_at_original[k] + 1e-6)
+                        for k in self.k
+                    }
+                    result.compute_metrics()
 
-                logger.info("Result for {}:\n{}", result_id, result)
+                    logger.trunc_info("Result for {}:\n{}", result_id, result)
+            finally:
+                remove_hash_loggers(logger)

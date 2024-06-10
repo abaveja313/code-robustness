@@ -15,14 +15,19 @@ from inference.dataset_manager import Dataset, SeedStrategy, DatasetManager
 from inference.predict import InferenceEngine
 from inference.stem_evaluator import StemEvaluator
 from mutations import CRT, RegisteredTransformation
+from shared.logging_utils import LongMessageHashFilter
 from mutations.registry import MutationRegistry
 from shared.gcs_storage_manager import GCSResultStorageManager
 from shared.structs import MutatedStem, BenchmarkResult
 
 logger.remove()
 # Configure the console logger
-logger.add(sys.stdout, level="INFO")
-logger.add("logs/output.log", level="DEBUG")
+hash_filter = LongMessageHashFilter(
+    min_length=100,
+    max_cache_size=4096
+)
+logger.add(sys.stdout, format="{time} {level} {message} {extra[hash]}", level="INFO", filter=hash_filter)
+logger.add("logs/output.log", format="{time} {level} {message} {extra[hash]}", level="DEBUG", filter=hash_filter)
 
 app = typer.Typer()
 
