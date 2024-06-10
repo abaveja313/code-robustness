@@ -1,6 +1,6 @@
 import threading
 from contextlib import contextmanager
-from hashlib import sha1
+from hashlib import sha1, md5
 
 from cachetools import LRUCache
 from loguru import logger
@@ -19,13 +19,14 @@ class LongMessageHashFilter:
         if len(log_message) < self.min_length:
             return True  # Allow the message to be logged as usual
 
-        message_hash = sha1(log_message.encode()).hexdigest()
+        message_hash = md5(log_message.encode()).hexdigest()
 
         with self.lock:
             cached_message = self.cache.get(message_hash)
 
             if cached_message:
                 record["message"] = f"Cached message: See hash {message_hash}"
+                record["extra"]["hash"] = message_hash
             else:
                 record["extra"]["hash"] = message_hash
                 self.cache[message_hash] = log_message
