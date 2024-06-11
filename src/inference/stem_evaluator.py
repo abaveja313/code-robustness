@@ -3,6 +3,7 @@ import threading
 import time
 from collections import Counter, defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import Pool
 from typing import Tuple, Dict
 
 from evalplus.evaluate import check_correctness
@@ -68,12 +69,6 @@ class StemEvaluator:
         )
 
     def evaluate(self, solutions: Dict[str, Dict[str, str]], results: Dict[str, BenchmarkResult]):
-        n_samples = 0
-        remaining = set()
-        tasks = []
-        completion_id = Counter()
-        future_meta_mapping = {}
-
         def check_correctness_wrapper(args):
             return check_correctness(**args)
 
@@ -83,8 +78,15 @@ class StemEvaluator:
                 time.sleep(20)
                 if last_size != len(remaining) or len(remaining) == 0:
                     continue
+                # Potential stucking
                 logger.warning("No samples had finished testing in the last 20s")
                 logger.warning(f"{len(remaining)} samples to be tested: {remaining}")
+
+        n_samples = 0
+        remaining = set()
+        tasks = []
+        completion_id = Counter()
+        future_meta_mapping = {}
 
         for i, result_id in enumerate(tqdm(solutions.keys())):
             for j, key in enumerate(solutions[result_id]):
@@ -115,8 +117,11 @@ class StemEvaluator:
 
         pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
 
-        with Pool(processes=int(os.cpu_count() * 0.75)) as pool:
-            results_list = list(tqdm(pool.imap_unordered(check_correctness_wrapper, tasks), total=n_samples))
+        chunksize = max(1, len(tasks) // int(os.cpu_count() * 0.75))
+
+        with Pool(processes=int(os.cpu_count() * 0.75), maxtasksperchild=250) as pool:
+            results_list = list(
+                tqdm(pool.imap_unordered(check_correctness_wrapper, tasks, chunksize=chunksize), total=n_samples))
 
         for eval_results in results_list:
             result_id, result_type, k = eval_results['identifier']
