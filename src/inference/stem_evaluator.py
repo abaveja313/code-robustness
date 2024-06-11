@@ -68,10 +68,9 @@ class StemEvaluator:
             mutated=mutated_predictions
         )
 
-
     def evaluate(self, solutions: Dict[str, Dict[str, str]], results: Dict[str, BenchmarkResult]):
         # Adapted from https://github.com/evalplus/evalplus/blob/master/evalplus/evaluate.py#L29
-        with ProcessPool(max_workers=32, max_tasks=25) as executor:
+        with ProcessPool(max_workers=32, max_tasks=15) as executor:
             futures = []
             future_meta_mapping = {}
             completion_id = Counter()
@@ -139,17 +138,19 @@ class StemEvaluator:
                     passed = [i for i in total if i == 1]
 
                     if len(passed) == len(total):
-                        logger.info("Solution passed:\n{}", solution)
+                        # logger.info("Solution passed:\n{}", solution)
                         pass_stats[(result_id, result_type)]['pass'] += 1
                         results[result_id].add_example(solution, SolutionType.PASSED, mutated)
                     else:
-                        logger.warning("Solution failed:{}\n{}", total, solution)
+                        # logger.warning("Solution failed:{}\n{}", total, solution)
                         results[result_id].add_example(solution, SolutionType.FAILED, mutated)
 
                 except Exception as e:
-                    logger.error(
-                        "Error processing solution: {}\n{}", solution, e
-                    )
+                    pass
+                    # if solution != '':
+                    #     logger.error(
+                    #         "Error processing solution: {}\n{}", solution, e
+                    #     )
                 finally:
                     remaining.remove((result_id, result_type, k))
 

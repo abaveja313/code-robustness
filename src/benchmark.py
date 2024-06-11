@@ -105,16 +105,16 @@ def evaluate_problem(
                 evaluate_targets[ident]['mutated'] = completions['mutated']
 
     # Temporary saving in case things go wrong
-    with open('./evaluate_targets.pkl', 'wb') as f:
+    with open(f'./evaluate_targets_{problem_id}.pkl', 'wb') as f:
         pickle.dump(evaluate_targets, f)
 
-    with open('./results.pkl', 'wb') as f:
+    with open(f'./results_{problem_id}.pkl', 'wb') as f:
         pickle.dump(results, f)
 
-    logger.info("Completed generating completions for all mutations... evaluating")
-    evaluator.evaluate(evaluate_targets, results)
-    logger.info("Uploading results to GCP")
-    result_manager.add_all(list(results.values()))
+    # logger.info("Completed generating completions for all mutations... evaluating")
+    # evaluator.evaluate(evaluate_targets, results)
+    # logger.info("Uploading results to GCP")
+    # result_manager.add_all(list(results.values()))
 
 
 def benchmark(
