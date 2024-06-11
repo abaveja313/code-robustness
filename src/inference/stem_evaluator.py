@@ -2,31 +2,18 @@ import os
 import threading
 import time
 from collections import Counter, defaultdict
-from multiprocessing import Pool
+from concurrent.futures import as_completed
 from typing import Tuple, Dict
 
 from evalplus.evaluate import check_correctness
-from inference.dataset_manager import DatasetManager
-from inference.predict import InferenceEngine
 from loguru import logger
-from shared.metrics import pass_at_k
-from shared.structs import BenchmarkResult, SolutionType, MutatedStem
+from pebble import ProcessPool
 from tqdm import tqdm
 
-
-def check_correctness_wrapper(args):
-    return check_correctness(**args)
-
-
-def stucking_checker(remaining):
-    while remaining:
-        last_size = len(remaining)
-        time.sleep(20)
-        if last_size != len(remaining) or len(remaining) == 0:
-            continue
-        # Potential stucking
-        logger.warning("No samples had finished testing in the last 20s")
-        logger.warning(f"{len(remaining)} samples to be tested: {remaining}")
+from inference.dataset_manager import DatasetManager
+from inference.predict import InferenceEngine
+from shared.metrics import pass_at_k
+from shared.structs import BenchmarkResult, SolutionType, MutatedStem
 
 
 class StemEvaluator:
@@ -81,95 +68,110 @@ class StemEvaluator:
             mutated=mutated_predictions
         )
 
+
     def evaluate(self, solutions: Dict[str, Dict[str, str]], results: Dict[str, BenchmarkResult]):
+        # Adapted from https://github.com/evalplus/evalplus/blob/master/evalplus/evaluate.py#L29
+        with ProcessPool(max_workers=32, max_tasks=25) as executor:
+            futures = []
+            future_meta_mapping = {}
+            completion_id = Counter()
+            n_samples = 0
+            remaining = set()
 
-        n_samples = 0
-        remaining = set()
-        tasks = []
-        completion_id = Counter()
-        future_meta_mapping = {}
+            for i, result_id in enumerate(tqdm(solutions.keys())):
+                for j, key in enumerate(solutions[result_id]):
+                    sequences = solutions[result_id][key]
+                    for k, sequence in enumerate(sequences):
+                        ident = (result_id, key, k)
+                        remaining.add(ident)
+                        kwargs = dict(
+                            dataset=self.dataset_manager.dataset_name,
+                            completion_id=completion_id[ident],
+                            problem=self.dataset_manager.get_problem(self.problem_id),
+                            solution=sequence,
+                            expected_output=self.dataset_manager.get_correct(self.problem_id),
+                            fast_check=False,
+                            base_only=self.base_only,
+                            identifier=ident,
+                            min_time_limit=1,
+                            gt_time_limit_factor=5.0
+                        )
+                        futures.append(executor.schedule(check_correctness, kwargs=kwargs))
+                        future_meta_mapping[futures[-1]] = ident
+                        completion_id[ident] += 1
+                        n_samples += 1
 
-        for i, result_id in enumerate(tqdm(solutions.keys())):
-            for j, key in enumerate(solutions[result_id]):
-                sequences = solutions[result_id][key]
-                for k, sequence in enumerate(sequences):
-                    ident = (result_id, key, k)
-                    remaining.add(ident)
-                    kwargs = dict(
-                        dataset=self.dataset_manager.dataset_name,
-                        completion_id=completion_id[ident],
-                        problem=self.dataset_manager.get_problem(self.problem_id),
-                        solution=sequence,
-                        expected_output=self.dataset_manager.get_correct(self.problem_id),
-                        fast_check=False,
-                        base_only=self.base_only,
-                        identifier=ident,
-                        min_time_limit=1,
-                        gt_time_limit_factor=5.0
+            assert n_samples == len(remaining), "Missing problems in unfinished"
+
+            def stucking_checker():
+                while remaining:
+                    last_size = len(remaining)
+                    time.sleep(20)
+                    if last_size != len(remaining) or len(remaining) == 0:
+                        continue
+                    # Potential stucking
+                    logger.warning("No samples had finished testing in the last 20s")
+                    logger.warning(f"{len(remaining)} samples to be tested: {remaining}")
+
+            threading.Thread(target=stucking_checker).start()
+
+            pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
+
+            for future in tqdm(as_completed(futures), total=n_samples):
+                result_id, result_type, k = future_meta_mapping[future]
+                mutated = result_type == "mutated"
+
+                try:
+                    eval_results = future.result()
+                    solution: str = eval_results.pop("solution")
+
+                    total = eval_results["base"][1]
+                    if not self.base_only:
+                        total += eval_results["plus"][1]
+
+                    pass_stats[(result_id, result_type)]['total'] += 1
+
+                    if len(total) == 0:
+                        logger.warning("Solution has invalid syntax :\n{}", solution)
+                        results[result_id].add_example(solution, SolutionType.BAD_SYNTAX, mutated)
+                        continue
+
+                    passed = [i for i in total if i == 1]
+
+                    if len(passed) == len(total):
+                        logger.info("Solution passed:\n{}", solution)
+                        pass_stats[(result_id, result_type)]['pass'] += 1
+                        results[result_id].add_example(solution, SolutionType.PASSED, mutated)
+                    else:
+                        logger.warning("Solution failed:{}\n{}", total, solution)
+                        results[result_id].add_example(solution, SolutionType.FAILED, mutated)
+
+                except Exception as e:
+                    logger.error(
+                        "Error processing solution: {}\n{}", solution, e
                     )
-                    tasks.append(kwargs)
-                    future_meta_mapping[(result_id, key, k)] = kwargs
-                    completion_id[ident] += 1
-                    n_samples += 1
+                finally:
+                    remaining.remove((result_id, result_type, k))
 
-        assert n_samples == len(remaining), "Missing problems in unfinished"
+            for result_id, result_type in pass_stats:
+                stats = pass_stats[(result_id, result_type)]
+                for k in self.k:
+                    pass_k = pass_at_k(stats['total'], stats['pass'], k)
+                    if result_type == 'original':
+                        results[result_id].pass_at_original[k] = pass_k
+                    else:
+                        results[result_id].pass_at_mutated[k] = pass_k
 
-        threading.Thread(target=stucking_checker, args=(remaining,)).start()
+            for result_id, result in results.items():
+                result.pass_at_diff = {
+                    k: result.pass_at_mutated[k] - result.pass_at_original[k]
+                    for k in self.k
+                }
+                result.pass_at_ratio = {
+                    # Add epsilon to prevent division by 0
+                    k: result.pass_at_mutated[k] / (result.pass_at_original[k] + 1e-6)
+                    for k in self.k
+                }
+                result.compute_metrics()
 
-        pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
-
-        chunksize = max(1, len(tasks) // int(os.cpu_count() * 0.75))
-
-        with Pool(processes=int(os.cpu_count() * 0.75), maxtasksperchild=250) as pool:
-            results_list = list(
-                tqdm(pool.imap_unordered(check_correctness_wrapper, tasks, chunksize=chunksize), total=n_samples))
-
-        for eval_results in results_list:
-            result_id, result_type, k = eval_results['identifier']
-            mutated = result_type == "mutated"
-            solution = eval_results.pop("solution")
-
-            total = eval_results["base"][1]
-            if not self.base_only:
-                total += eval_results["plus"][1]
-
-            pass_stats[(result_id, result_type)]['total'] += 1
-
-            if len(total) == 0:
-                logger.warning("Solution has invalid syntax :\n{}", solution)
-                results[result_id].add_example(solution, SolutionType.BAD_SYNTAX, mutated)
-                continue
-
-            passed = [i for i in total if i == 1]
-
-            if len(passed) == len(total):
-                logger.info("Solution passed:\n{}", solution)
-                pass_stats[(result_id, result_type)]['pass'] += 1
-                results[result_id].add_example(solution, SolutionType.PASSED, mutated)
-            else:
-                logger.warning("Solution failed:{}\n{}", total, solution)
-                results[result_id].add_example(solution, SolutionType.FAILED, mutated)
-
-            remaining.remove((result_id, result_type, k))
-
-        for result_id, result_type in pass_stats:
-            stats = pass_stats[(result_id, result_type)]
-            for k in self.k:
-                pass_k = pass_at_k(stats['total'], stats['pass'], k)
-                if result_type == 'original':
-                    results[result_id].pass_at_original[k] = pass_k
-                else:
-                    results[result_id].pass_at_mutated[k] = pass_k
-
-        for result_id, result in results.items():
-            result.pass_at_diff = {
-                k: result.pass_at_mutated[k] - result.pass_at_original[k]
-                for k in self.k
-            }
-            result.pass_at_ratio = {
-                k: result.pass_at_mutated[k] / (result.pass_at_original[k] + 1e-6)
-                for k in self.k
-            }
-            result.compute_metrics()
-
-            logger.info("Result for {}:\n{}", result_id, result)
+                logger.info("Result for {}:\n{}", result_id, result)
