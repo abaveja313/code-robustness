@@ -69,7 +69,7 @@ class StemEvaluator:
 
     def evaluate(self, solutions: Dict[str, Dict[str, str]], results: Dict[str, BenchmarkResult]):
         # Adapted from https://github.com/evalplus/evalplus/blob/master/evalplus/evaluate.py#L29
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ProcessPoolExecutor(max_workers=int(os.cpu_count() * 0.75), max_tasks_per_child=250) as executor:
             futures = []
             future_meta_mapping = {}
             completion_id = Counter()
