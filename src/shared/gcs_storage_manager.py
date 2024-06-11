@@ -1,3 +1,5 @@
+import pickle
+
 from gcsfs import GCSFileSystem
 import json
 
@@ -22,6 +24,12 @@ class GCSResultStorageManager:
     def add_all(self, results: list[BenchmarkResult]):
         for result in results:
             self.add(result)
+
+    def add_data_pickle(self, obj, name: str):
+        logger.info(f"Adding pickle to GCS")
+        full_path = f"{self.bucket_name}/{self.model_name}/pickles/{name}.pickle"
+        with self.gcs.open(full_path, "wb") as f:
+            f.write(pickle.dumps(obj))
 
     def add(self, result: BenchmarkResult):
         logger.info(f"Adding result to GCS")
