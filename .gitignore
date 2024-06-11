@@ -239,3 +239,5 @@ fabric.properties
 **/logs
 **/.idea
 .idea
+**/*.pkl
+

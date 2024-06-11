@@ -65,6 +65,23 @@ class TestIfToConditional:
 
 
 class TestIfToWhileLoop:
+    def test_if_to_while_elif(self):
+        code = """
+        if a == 3:
+            a = 2
+        elif a == 2:
+            b = 2
+        else:
+            c = 3
+        """
+        expected = [
+            """
+            while a == 3:
+                pass
+            """,
+        ]
+        verify_visitor(IfToWhileLoopVisitor, code, expected)
+
     def test_if_to_while_loop(self):
         code = """
         if a == 3:
@@ -91,13 +108,6 @@ class TestIfToWhileLoop:
             """
             while a == 3:
                 pass
-            """,
-            """
-            if a == 3:
-                a = 2
-            else:
-                while a == 2:
-                    pass
             """
         ]
         verify_visitor(IfToWhileLoopVisitor, code, expected)

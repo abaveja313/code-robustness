@@ -10,7 +10,11 @@ class IfToWhileLoopVisitor(OneByOneVisitor):
         return while_loop
 
     def is_transformable(self, node):
-        return isinstance(node, ast.If)
+        if not isinstance(node, ast.If):
+            return False
+        if not hasattr(node, 'parent'):
+            return True
+        return not (isinstance(node.parent, ast.If) and node in node.parent.orelse)
 
 
 class IfToWhileLoopTransformer(OneByOneTransformer, category=CRT.conditionals):
