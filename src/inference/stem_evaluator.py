@@ -2,18 +2,31 @@ import os
 import threading
 import time
 from collections import Counter, defaultdict
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Pool
 from typing import Tuple, Dict
 
 from evalplus.evaluate import check_correctness
-from loguru import logger
-from tqdm import tqdm
-
 from inference.dataset_manager import DatasetManager
 from inference.predict import InferenceEngine
+from loguru import logger
 from shared.metrics import pass_at_k
 from shared.structs import BenchmarkResult, SolutionType, MutatedStem
+from tqdm import tqdm
+
+
+def check_correctness_wrapper(args):
+    return check_correctness(**args)
+
+
+def stucking_checker(remaining):
+    while remaining:
+        last_size = len(remaining)
+        time.sleep(20)
+        if last_size != len(remaining) or len(remaining) == 0:
+            continue
+        # Potential stucking
+        logger.warning("No samples had finished testing in the last 20s")
+        logger.warning(f"{len(remaining)} samples to be tested: {remaining}")
 
 
 class StemEvaluator:
@@ -69,18 +82,6 @@ class StemEvaluator:
         )
 
     def evaluate(self, solutions: Dict[str, Dict[str, str]], results: Dict[str, BenchmarkResult]):
-        def check_correctness_wrapper(args):
-            return check_correctness(**args)
-
-        def stucking_checker(remaining):
-            while remaining:
-                last_size = len(remaining)
-                time.sleep(20)
-                if last_size != len(remaining) or len(remaining) == 0:
-                    continue
-                # Potential stucking
-                logger.warning("No samples had finished testing in the last 20s")
-                logger.warning(f"{len(remaining)} samples to be tested: {remaining}")
 
         n_samples = 0
         remaining = set()
