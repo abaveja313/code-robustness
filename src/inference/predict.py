@@ -170,6 +170,7 @@ class InferenceEngine:
         mutated_outputs = self.generate(prompts[1], num_samples, temperature, logprobs=False)
 
         errors = []
+        last_solution = None
         for prompt, sequences, stem_name in zip(prompts, [original_outputs, mutated_outputs], ["original", "mutated"]):
             for sequence in sequences:
                 prefix = stem.original_stem if stem_name == "original" else stem.mutated_stem
@@ -177,7 +178,7 @@ class InferenceEngine:
                     code=program_concat(prefix, sequence['text']),
                     probs=sequence['cumulative_logprob'],
                 )
-                logger.info(f"Solution:\n{solution.code}")
+                last_solution = solution
                 try:
                     solution.post_process()
                     batch_solutions[stem_name].add_solution(solution)
@@ -189,6 +190,8 @@ class InferenceEngine:
                         )
                     )
                     batch_solutions[stem_name].add_solution(Solution(code='', probs=0.0))
+
+        logger.info(f"Last Solution:\n{last_solution.code}")
         return batch_solutions, errors
 
     def sample_stem_solutions(
