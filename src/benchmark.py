@@ -107,7 +107,7 @@ def sample_problem_solutions(
                     ))
                     future_ident_mapping[futures[-1]] = ident
 
-        for future in as_completed(futures):
+        for future in tqdm.tqdm(as_completed(futures), total=len(futures)):
             try:
                 completions = future.result()
                 ident = future_ident_mapping[future]
