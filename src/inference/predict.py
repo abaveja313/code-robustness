@@ -11,6 +11,7 @@ from shared.program_utils import program_concat
 from shared.structs import MutatedStem, Solution, BatchSolution, BenchmarkResult, SolutionType
 from shared.logging_utils import prob_log
 
+
 class InferenceEngine:
     _MAGIC_SPLITTER_ = "-[[]]-this-is-really-our-highest-priority-[[]]-"
 
@@ -51,7 +52,6 @@ class InferenceEngine:
         self.sampling_params |= {
             "top_p": top_p,
             "max_tokens": max_tokens,
-            "logprobs": True
         }
 
     def add_eos_for_task(self):
@@ -110,18 +110,18 @@ class InferenceEngine:
         ).split(self._MAGIC_SPLITTER_)[0]
         return prompt
 
-    def generate(self, prompt: str, num_samples: int, temp: float):
+    def generate(self, prompt: str, num_samples: int, temp: float, logprobs: bool):
         model_outputs = self.llm.completions.create(
             model=self.model_name,
             prompt=prompt,
             n=num_samples,
-            **(self.sampling_params | {"temperature": temp})
+            **(self.sampling_params | {"temperature": temp, "logprobs": logprobs})
         )
         sequences = []
         for output in model_outputs.choices:
             sequence = {
                 'text': output.text,
-                'cumulative_logprob': np.sum(output.logprobs.token_logprobs)
+                'cumulative_logprob': np.sum(output.logprobs.token_logprobs) if logprobs else -1.0
             }
             sequences.append(sequence)
 
@@ -132,7 +132,7 @@ class InferenceEngine:
 
         logger.debug("Prompt:\n{}", prompt)
 
-        sequences = self.generate(prompt, num_samples, temperature)
+        sequences = self.generate(prompt, num_samples, temperature, logprobs=True)
 
         errors = []
         batch_solution = BatchSolution()
@@ -165,8 +165,8 @@ class InferenceEngine:
 
         batch_solutions = dict(original=BatchSolution(), mutated=BatchSolution())
 
-        original_outputs = self.generate(prompts[0], num_samples, temperature)
-        mutated_outputs = self.generate(prompts[1], num_samples, temperature)
+        original_outputs = self.generate(prompts[0], num_samples, temperature, logprobs=False)
+        mutated_outputs = self.generate(prompts[1], num_samples, temperature, logprobs=False)
 
         errors = []
         for prompt, sequences, stem_name in zip(prompts, [original_outputs, mutated_outputs], ["original", "mutated"]):
