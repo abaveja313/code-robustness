@@ -92,14 +92,11 @@ class InferenceEngine:
             "corresponding tests. Write your code in a markdown code block, ending your response with ```. "
             "The function does not execute any tests of its logic. Don't include any testcases or evaluate your "
             "response.\n\n"
-            "```python\n"
-            f"{stem.strip()}\n"
-            "```"
         )
         response = (
             "Below is the rest of the function body such that it passes the corresponding tests:\n"
             "```python\n"
-            f"\t# Function body continued below\n"
+            f"{stem.strip()}\n"
             f"{self._MAGIC_SPLITTER_}"
             "```"
         )
