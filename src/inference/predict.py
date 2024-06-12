@@ -8,7 +8,7 @@ from transformers import AutoTokenizer
 from inference.dataset_manager import DatasetManager
 from inference.processors import Processors, PostprocessingException
 from shared.program_utils import program_concat
-from shared.structs import MutatedStem, Solution, BatchSolution
+from shared.structs import MutatedStem, Solution, BatchSolution, BenchmarkResult, SolutionType
 
 
 class InferenceEngine:
@@ -191,3 +191,39 @@ class InferenceEngine:
                     )
                     batch_solutions[stem_name].add_solution(Solution(code='', probs=0.0))
         return batch_solutions, errors
+
+    def sample_stem_solutions(
+            self,
+            stem: MutatedStem,
+            result: BenchmarkResult,
+            temp: float,
+            num_samples: int = 200
+    ):
+        logger.info(
+            "Completing tests (@T{}) for:\n===========\nOld:\n{}\n\nMutated:\n{}",
+            temp,
+            stem.original_stem,
+            stem.mutated_stem,
+        )
+        result.add_stem(stem)
+
+        predictions, errors = self.complete_stems(
+            stem=stem, num_samples=num_samples,
+            temperature=temp
+        )
+
+        logger.warning("Found {} errors during postprocessing", len(errors))
+
+        for error in errors:
+            result.add_example(
+                example=error.code,
+                solution_type=SolutionType.BAD_PROCESS,
+                mutated=error.mutated,
+            )
+
+        original_predictions = predictions["original"].get_code()
+        mutated_predictions = predictions["mutated"].get_code()
+        return dict(
+            original=original_predictions,
+            mutated=mutated_predictions
+        )

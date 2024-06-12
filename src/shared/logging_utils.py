@@ -25,7 +25,7 @@ class LongMessageHashFilter:
             cached_message = self.cache.get(message_hash)
 
             if cached_message:
-                record["message"] = f"Cached message: See hash {message_hash}"
+                record["message"] = f"Cached message"
                 record["extra"]["hash"] = message_hash
             else:
                 record["extra"]["hash"] = message_hash

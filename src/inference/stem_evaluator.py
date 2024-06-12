@@ -1,5 +1,3 @@
-import os
-import threading
 import time
 from collections import Counter, defaultdict
 from concurrent.futures import as_completed
@@ -13,70 +11,90 @@ from tqdm import tqdm
 from inference.dataset_manager import DatasetManager
 from inference.predict import InferenceEngine
 from shared.metrics import pass_at_k
-from shared.structs import BenchmarkResult, SolutionType, MutatedStem
+from shared.structs import BenchmarkResult, SolutionType
 
 
 class StemEvaluator:
     def __init__(
             self,
-            inference_engine: InferenceEngine,
             dataset_manager: DatasetManager,
             problem_id: str,
             num_samples: int = 100,
-            k: Tuple[int, ...] = (1, 5, 10),
+            k: Tuple[int, ...] = (1, 2, 3, 5, 10),
             base_only: bool = False,
+            max_workers: int = 32,
+            max_tasks: int = 15,
+            batch_size: int = 250,
+            restart_size: int = 25000
     ):
-        self.inference = inference_engine
         self.dataset_manager = dataset_manager
         self.num_samples = num_samples
         self.problem_id = problem_id
         self.k = k
         self.base_only = base_only
+        self.max_workers = max_workers
+        self.max_tasks = max_tasks
+        self.batch_size = batch_size
+        self.restart_size = restart_size
 
-    def generate_sequences(
-            self,
-            stem: MutatedStem,
-            result: BenchmarkResult,
-            temp: float
-    ):
-        logger.info(
-            "Completing tests (@T{}) for:\n===========\nOld:\n{}\n\nMutated:\n{}",
-            temp,
-            stem.original_stem,
-            stem.mutated_stem,
-        )
-        result.add_stem(stem)
+    def process_future_result(self, future, future_meta_mapping, results, pass_stats):
+        result_id, result_type, k = future_meta_mapping[future]
+        mutated = result_type == "mutated"
 
-        predictions, errors = self.inference.complete_stems(
-            stem=stem, num_samples=self.num_samples,
-            temperature=temp
-        )
+        try:
+            eval_results = future.result()
+            solution: str = eval_results.pop("solution")
 
-        logger.warning("Found {} errors during postprocessing", len(errors))
+            total = eval_results["base"][1]
+            if not self.base_only:
+                total += eval_results["plus"][1]
 
-        for error in errors:
-            result.add_example(
-                example=error.code,
-                solution_type=SolutionType.BAD_PROCESS,
-                mutated=error.mutated,
-            )
+            pass_stats[(result_id, result_type)]['total'] += 1
 
-        original_predictions = predictions["original"].get_code()
-        mutated_predictions = predictions["mutated"].get_code()
-        return dict(
-            original=original_predictions,
-            mutated=mutated_predictions
-        )
+            if len(total) == 0:
+                logger.warning("Solution has invalid syntax :\n{}", solution)
+                results[result_id].add_example(solution, SolutionType.BAD_SYNTAX, mutated)
+                return
+
+            passed = [i for i in total if i == 1]
+
+            if len(passed) == len(total):
+                pass_stats[(result_id, result_type)]['pass'] += 1
+                results[result_id].add_example(solution, SolutionType.PASSED, mutated)
+            else:
+                logger.warning("Solution failed:\n{}", solution)
+                results[result_id].add_example(solution, SolutionType.FAILED, mutated)
+
+        except Exception as e:
+            logger.exception("Error during evaluation")
+
+    def update_results(self, results):
+        for result_id, result in results.items():
+            result.pass_at_diff = {
+                k: result.pass_at_mutated[k] - result.pass_at_original[k]
+                for k in self.k
+            }
+            result.pass_at_ratio = {
+                k: result.pass_at_mutated[k] / (result.pass_at_original[k] + 1e-6)
+                for k in self.k
+            }
+            result.compute_metrics()
+
+            logger.info("Result for {}:\n{}", result_id, result)
 
     def evaluate(self, solutions: Dict[str, Dict[str, str]], results: Dict[str, BenchmarkResult]):
-        # Adapted from https://github.com/evalplus/evalplus/blob/master/evalplus/evaluate.py#L29
-        with ProcessPool(max_workers=32, max_tasks=15) as executor:
-            futures = []
-            future_meta_mapping = {}
-            completion_id = Counter()
-            n_samples = 0
-            remaining = set()
+        futures = []
+        future_meta_mapping = {}
+        completion_id = Counter()
+        n_samples = 0
+        remaining = set()
+        pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
+        completed_jobs = 0
 
+        executor = ProcessPool(max_workers=self.max_workers, max_tasks=self.max_tasks)
+        logger.info("Creating process pool with {} workers and {} tasks", self.max_workers, self.max_tasks)
+
+        try:
             for i, result_id in enumerate(tqdm(solutions.keys())):
                 for j, key in enumerate(solutions[result_id]):
                     sequences = solutions[result_id][key]
@@ -100,79 +118,38 @@ class StemEvaluator:
                         completion_id[ident] += 1
                         n_samples += 1
 
-            assert n_samples == len(remaining), "Missing problems in unfinished"
+                        if len(futures) >= self.batch_size:
+                            logger.info("Reached batch size, waiting for completion...")
+                            logger.debug("Remaining: {}", remaining)
+                            for future in as_completed(futures):
+                                self.process_future_result(future, future_meta_mapping, results, pass_stats)
+                                remaining.remove(future_meta_mapping[future])
+                                completed_jobs += 1
 
-            def stucking_checker():
-                while remaining:
-                    last_size = len(remaining)
-                    time.sleep(20)
-                    if last_size != len(remaining) or len(remaining) == 0:
-                        continue
-                    # Potential stucking
-                    logger.warning("No samples had finished testing in the last 20s")
-                    logger.warning(f"{len(remaining)} samples to be tested: {remaining}")
+                                if completed_jobs % self.restart_size == 0:
+                                    logger.warning("Completed jobs reached restart size... restarting executor")
+                                    executor.stop()
+                                    executor.join()
+                                    executor = ProcessPool(max_workers=self.max_workers, max_tasks=self.max_tasks)
 
-            threading.Thread(target=stucking_checker).start()
+                            futures = []
 
-            pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
+            for future in as_completed(futures):
+                self.process_future_result(future, future_meta_mapping, results, pass_stats)
+                remaining.remove(future_meta_mapping[future])
 
-            for future in tqdm(as_completed(futures), total=n_samples):
-                result_id, result_type, k = future_meta_mapping[future]
-                mutated = result_type == "mutated"
+        finally:
+            logger.warning("Shutting down executor...")
+            executor.stop()
+            executor.join()
 
-                try:
-                    eval_results = future.result()
-                    solution: str = eval_results.pop("solution")
+        for result_id, result_type in pass_stats:
+            stats = pass_stats[(result_id, result_type)]
+            for k in self.k:
+                pass_k = pass_at_k(stats['total'], stats['pass'], k)
+                if result_type == 'original':
+                    results[result_id].pass_at_original[k] = pass_k
+                else:
+                    results[result_id].pass_at_mutated[k] = pass_k
 
-                    total = eval_results["base"][1]
-                    if not self.base_only:
-                        total += eval_results["plus"][1]
-
-                    pass_stats[(result_id, result_type)]['total'] += 1
-
-                    if len(total) == 0:
-                        logger.warning("Solution has invalid syntax :\n{}", solution)
-                        results[result_id].add_example(solution, SolutionType.BAD_SYNTAX, mutated)
-                        continue
-
-                    passed = [i for i in total if i == 1]
-
-                    if len(passed) == len(total):
-                        # logger.info("Solution passed:\n{}", solution)
-                        pass_stats[(result_id, result_type)]['pass'] += 1
-                        results[result_id].add_example(solution, SolutionType.PASSED, mutated)
-                    else:
-                        # logger.warning("Solution failed:{}\n{}", total, solution)
-                        results[result_id].add_example(solution, SolutionType.FAILED, mutated)
-
-                except Exception as e:
-                    pass
-                    # if solution != '':
-                    #     logger.error(
-                    #         "Error processing solution: {}\n{}", solution, e
-                    #     )
-                finally:
-                    remaining.remove((result_id, result_type, k))
-
-            for result_id, result_type in pass_stats:
-                stats = pass_stats[(result_id, result_type)]
-                for k in self.k:
-                    pass_k = pass_at_k(stats['total'], stats['pass'], k)
-                    if result_type == 'original':
-                        results[result_id].pass_at_original[k] = pass_k
-                    else:
-                        results[result_id].pass_at_mutated[k] = pass_k
-
-            for result_id, result in results.items():
-                result.pass_at_diff = {
-                    k: result.pass_at_mutated[k] - result.pass_at_original[k]
-                    for k in self.k
-                }
-                result.pass_at_ratio = {
-                    # Add epsilon to prevent division by 0
-                    k: result.pass_at_mutated[k] / (result.pass_at_original[k] + 1e-6)
-                    for k in self.k
-                }
-                result.compute_metrics()
-
-                logger.info("Result for {}:\n{}", result_id, result)
+        self.update_results(results, pass_stats)

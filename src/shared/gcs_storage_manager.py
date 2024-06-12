@@ -1,10 +1,12 @@
 import pickle
+from typing import Any
 
 from gcsfs import GCSFileSystem
 import json
 
 from shared.structs import BenchmarkResult
 from loguru import logger
+import pickle
 
 
 class GCSResultStorageManager:
@@ -25,11 +27,22 @@ class GCSResultStorageManager:
         for result in results:
             self.add(result)
 
-    def add_data_pickle(self, obj, name: str):
+    def get_data_pickles(self):
+        full_path = f"{self.bucket_name}/{self.model_name}/pickles/"
+
+        for file in self.gcs.ls(full_path):
+            if file.endswith(".pkl"):
+                with self.gcs.open(file, "rb") as f:
+                    obj = pickle.loads(f.read())
+                    yield obj['evaluate_targets'], obj['results']
+
+    def add_data_pickle(self, eval_target: dict[str, Any], problem_id: str):
         logger.info(f"Adding pickle to GCS")
-        full_path = f"{self.bucket_name}/{self.model_name}/pickles/{name}.pickle"
+        problem_id = problem_id.replace("/", "_").lower()
+        full_path = f"{self.bucket_name}/{self.model_name}/pickles/problem_{problem_id}.pkl"
+
         with self.gcs.open(full_path, "wb") as f:
-            f.write(pickle.dumps(obj))
+            f.write(pickle.dumps(eval_target))
 
     def add(self, result: BenchmarkResult):
         logger.info(f"Adding result to GCS")

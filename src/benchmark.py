@@ -32,7 +32,7 @@ logger.add("logs/output.log", format="{time} {level} {message} {extra[hash]}", l
 app = typer.Typer()
 
 
-def evaluate_problem(
+def sample_problem_solutions(
         inference_engine: InferenceEngine,
         model_temps: list[float],
         problem_id: str,
@@ -66,13 +66,6 @@ def evaluate_problem(
     )
     all_mutations = list(chain.from_iterable(mutations))
     logger.info(f"Found {len(all_mutations)} available mutations")
-    evaluator = StemEvaluator(
-        inference_engine=inference_engine,
-        problem_id=problem_id,
-        num_samples=scoring_samples,
-        dataset_manager=dataset_manager,
-        base_only=base_only,
-    )
 
     pbar = tqdm.tqdm(all_mutations)
 
@@ -100,16 +93,21 @@ def evaluate_problem(
                     temp=tid
                 )
 
-                completions = evaluator.generate_sequences(stem, results[ident], tid)
+                completions = inference_engine.sample_stem_solutions(stem, results[ident], tid, scoring_samples)
+
                 evaluate_targets[ident]['original'] = completions['original']
                 evaluate_targets[ident]['mutated'] = completions['mutated']
 
     # Temporary saving in case things go wrong
-    result_manager.add_data_pickle(evaluate_targets, f'evaluate_targets_{problem_id}')
-    result_manager.add_data_pickle(results, f'results_{problem_id}')
+    eval_target = {
+        'evaluate_targets': evaluate_targets,
+        'results': results
+    }
+    logger.info("Adding Data Pickle for Problem: {}", problem_id)
+    result_manager.add_data_pickle(eval_target, problem_id)
 
 
-def benchmark(
+def sample_solutions(
         model_name: str,
         dataset_name: str,
         inference_server_url: str,
@@ -162,7 +160,7 @@ def benchmark(
 
         logger.info(f"Evaluating problem: {seed_problem}")
         try:
-            evaluate_problem(
+            sample_problem_solutions(
                 inference_engine=inference_engine,
                 problem_id=seed_problem,
                 dataset_manager=dataset_manager,
@@ -182,8 +180,76 @@ def benchmark(
             )
 
 
-@app.command()
-def cli_benchmark(
+def evaluate_solutions(
+        dataset_name: str,
+        dataset_mini: bool = True,
+        dataset_noextreme: bool = False,
+        base_only: bool = False,
+        max_workers: int = 32,
+        max_tasks: int = 15,
+        batch_size: int = 250,
+        restart_size: int = 25000,
+        gcs_bucket_name: str = "amrit-research-samples",
+        gcs_project_name: str = "research"
+):
+    logger.info("Evaluating Solutions...")
+    result_manager = GCSResultStorageManager(
+        model_name=dataset_name, bucket_name=gcs_bucket_name, project=gcs_project_name
+    )
+    dataset_manager = DatasetManager(
+        dataset=dataset_name, mini=dataset_mini, noextreme=dataset_noextreme
+    )
+    for eval_target, results in tqdm.tqdm(result_manager.get_data_pickles()):
+        evaluator = StemEvaluator(
+            dataset_manager=dataset_manager,
+            problem_id=eval_target,
+            base_only=base_only,
+            max_workers=max_workers,
+            max_tasks=max_tasks,
+            batch_size=batch_size,
+            restart_size=restart_size
+        )
+        logger.info("Evaluating {} results...", len(results))
+        evaluator.evaluate(eval_target, results)
+        logger.info("Done. Writing results to GCS...")
+        result_manager.add_all(results)
+
+
+@app.command(name="eval")
+def cli_evaluate_solutions(
+        dataset_name: str = typer.Argument(..., help="The name of the dataset."),
+        dataset_mini: bool = typer.Option(
+            True, help="Whether to use a mini version of the dataset."
+        ),
+        dataset_noextreme: bool = typer.Option(
+            False, help="Whether to exclude extreme samples from the dataset."
+        ),
+        base_only: bool = typer.Option(False, help="Whether to evaluate base model only."),
+        max_workers: int = typer.Option(32, help="Number of workers."),
+        max_tasks: int = typer.Option(15, help="Number of tasks."),
+        batch_size: int = typer.Option(250, help="Batch size."),
+        restart_size: int = typer.Option(25000, help="Restart size."),
+        gcs_bucket_name: str = typer.Option(
+            "amrit-research-samples", help="Name of the GCS bucket."
+        ),
+        gcs_project_name: str = typer.Option("research", help="Name of the GCS project."),
+):
+    evaluate_solutions(
+        dataset_name=dataset_name,
+        dataset_mini=dataset_mini,
+        dataset_noextreme=dataset_noextreme,
+        base_only=base_only,
+        max_workers=max_workers,
+        max_tasks=max_tasks,
+        batch_size=batch_size,
+        restart_size=restart_size,
+        gcs_bucket_name=gcs_bucket_name,
+        gcs_project_name=gcs_project_name
+    )
+
+
+@app.command(name="sample")
+def cli_sample_solutions(
         model_name: str = typer.Argument(..., help="The HF name of the model."),
         model_temps: Tuple[float, float, float] = typer.Option((0.3, 0.5, 0.7), help="Temperatures to evaluate at."),
         model_max_new_tokens: int = typer.Option(
@@ -228,7 +294,7 @@ def cli_benchmark(
         gcs_project_name: str = typer.Option("research", help="Name of the GCS project."),
         completed: List[str] = typer.Option((), help="Tuple of completed problem IDs."),
 ):
-    benchmark(
+    sample_solutions(
         model_name=model_name,
         model_temps=model_temps,
         dataset_name=dataset_name,
