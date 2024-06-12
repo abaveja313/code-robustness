@@ -9,6 +9,7 @@ from typing import List, Dict, Tuple
 import tqdm
 import typer
 from loguru import logger
+from pebble import ThreadPool
 
 from canonical import MaxProbInitializer
 from canonical.max_prob_initializer import NoPassingSolutionException
@@ -73,7 +74,7 @@ def sample_problem_solutions(
     evaluate_targets: Dict[str, Dict[str, str]] = defaultdict(dict)
     results = {}
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPool(max_workers=10, max_tasks=50) as executor:
         futures = []
         future_ident_mapping = {}
 
