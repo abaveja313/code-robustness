@@ -1,8 +1,7 @@
 import os
-import pickle
 import sys
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from itertools import chain
 from typing import List, Dict, Tuple
 
@@ -17,9 +16,9 @@ from inference.dataset_manager import Dataset, SeedStrategy, DatasetManager
 from inference.predict import InferenceEngine
 from inference.stem_evaluator import StemEvaluator
 from mutations import CRT, RegisteredTransformation
-from shared.logging_utils import LongMessageHashFilter
 from mutations.registry import MutationRegistry
 from shared.gcs_storage_manager import GCSResultStorageManager
+from shared.logging_utils import LongMessageHashFilter
 from shared.structs import MutatedStem, BenchmarkResult
 
 logger.remove()
