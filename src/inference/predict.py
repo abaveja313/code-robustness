@@ -99,7 +99,7 @@ class InferenceEngine:
         response = (
             "Below is the rest of the function body such that it passes the corresponding tests:\n"
             "```python\n"
-            f"{stem.strip()}\n"
+            f"\t# Function body continued below\n"
             f"{self._MAGIC_SPLITTER_}"
             "```"
         )
