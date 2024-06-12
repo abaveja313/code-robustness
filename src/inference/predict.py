@@ -176,7 +176,7 @@ class InferenceEngine:
                     code=program_concat(prefix, sequence['text']),
                     probs=sequence['cumulative_logprob'],
                 )
-                prob_log("DEBUG", f"Solution:\n{solution.code}", p=0.05)
+                logger.info(f"Solution:\n{solution.code}")
                 try:
                     solution.post_process()
                     batch_solutions[stem_name].add_solution(solution)
