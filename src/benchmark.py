@@ -99,7 +99,7 @@ def sample_problem_solutions(
                     )
 
                     futures.append(executor.submit(
-                        fn=inference_engine.sample_stem_solutions,
+                        inference_engine.sample_stem_solutions,
                         stem=stem,
                         result=results[ident],
                         temp=tid,
