@@ -9,7 +9,7 @@ from inference.dataset_manager import DatasetManager
 from inference.processors import Processors, PostprocessingException
 from shared.program_utils import program_concat
 from shared.structs import MutatedStem, Solution, BatchSolution, BenchmarkResult, SolutionType
-
+from shared.logging_utils import prob_log
 
 class InferenceEngine:
     _MAGIC_SPLITTER_ = "-[[]]-this-is-really-our-highest-priority-[[]]-"
@@ -176,6 +176,7 @@ class InferenceEngine:
                     code=program_concat(prefix, sequence['text']),
                     probs=sequence['cumulative_logprob'],
                 )
+                prob_log("DEBUG", f"Solution:\n{solution.code}", p=0.025)
                 try:
                     solution.post_process()
                     batch_solutions[stem_name].add_solution(solution)

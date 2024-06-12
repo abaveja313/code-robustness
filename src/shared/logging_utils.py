@@ -1,9 +1,15 @@
+import random
 import threading
 from contextlib import contextmanager
 from hashlib import sha1, md5
 
 from cachetools import LRUCache
 from loguru import logger
+
+
+def prob_log(level: str, message: str, p: float = 0.5):
+    if random.random() < p:
+        logger.log(level, message)
 
 
 class LongMessageHashFilter:
