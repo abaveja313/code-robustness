@@ -40,7 +40,8 @@ class InferenceEngine:
             "</s>",
             "\nif __name__",
             "\ndef main(",
-            "\nprint("
+            "\nprint(",
+            "\n#"
         ]
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
