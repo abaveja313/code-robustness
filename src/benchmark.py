@@ -2,6 +2,7 @@ import os
 import pickle
 import sys
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import chain
 from typing import List, Dict, Tuple
 
@@ -72,33 +73,50 @@ def sample_problem_solutions(
     evaluate_targets: Dict[str, Dict[str, str]] = defaultdict(dict)
     results = {}
 
-    for mid, mutation in enumerate(pbar):
-        pbar.set_description(f"{mutation.__name__}")
-        stems: list[MutatedStem] = mutation().get_transformations(
-            current_text=canonical_solution.code
-        )
-        if len(stems) == 0:
-            logger.info("Skipping mutation as it produced no output")
-            continue
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = []
+        future_ident_mapping = {}
 
-        for sid, stem in enumerate(tqdm.tqdm(stems)):
-            for tid in model_temps:
-                logger.info("Evaluating at T{}", tid)
-                ident = f"{problem_id}-{mid}-{sid}-T{tid}"
-                results[ident] = BenchmarkResult(
-                    problem_id=problem_id,
-                    stem_id=str(sid),
-                    mutation_id=str(mid),
-                    mutation=mutation.__name__,
-                    temp=tid
-                )
+        for mid, mutation in enumerate(pbar):
+            pbar.set_description(f"{mutation.__name__}")
+            stems: list[MutatedStem] = mutation().get_transformations(
+                current_text=canonical_solution.code
+            )
+            if len(stems) == 0:
+                logger.info("Skipping mutation as it produced no output")
+                continue
 
-                completions = inference_engine.sample_stem_solutions(stem, results[ident], tid, scoring_samples)
+            for sid, stem in enumerate(tqdm.tqdm(stems)):
+                for tid in model_temps:
+                    logger.info("Submitting {}-{}-{}-T{}...", problem_id, mid, sid, tid)
+                    ident = f"{problem_id}-{mid}-{sid}-T{tid}"
+                    results[ident] = BenchmarkResult(
+                        problem_id=problem_id,
+                        stem_id=str(sid),
+                        mutation_id=str(mid),
+                        mutation=mutation.__name__,
+                        temp=tid
+                    )
 
+                    futures.append(executor.submit(
+                        fn=inference_engine.sample_stem_solutions,
+                        stem=stem,
+                        result=results[ident],
+                        temp=tid,
+                        num_samples=scoring_samples
+                    ))
+                    future_ident_mapping[futures[-1]] = ident
+
+        for future in as_completed(futures):
+            try:
+                completions = future.result()
+                ident = future_ident_mapping[future]
                 evaluate_targets[ident]['original'] = completions['original']
                 evaluate_targets[ident]['mutated'] = completions['mutated']
+            except Exception:
+                logger.exception("Error during evaluation")
 
-    # Temporary saving in case things go wrong
+        # Temporary saving in case things go wrong
     eval_target = {
         'evaluate_targets': evaluate_targets,
         'results': results
