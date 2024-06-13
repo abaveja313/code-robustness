@@ -166,7 +166,7 @@ def sample_solutions(
     )
 
     if seed_problems is None:
-        logger.info("Calculating Seed Problems...")
+        logger.info("Calculating Seed Problems... w/o {}", completed)
         seed_problems = dataset_manager.find_seeds(
             k=seed_problems_k, metric=seed_problem_metric
         )
@@ -310,7 +310,7 @@ def cli_sample_solutions(
             "amrit-research-samples", help="Name of the GCS bucket."
         ),
         gcs_project_name: str = typer.Option("research", help="Name of the GCS project."),
-        completed: List[str] = typer.Option((), help="Tuple of completed problem IDs."),
+        completed: str = typer.Option((), help="Tuple of completed problem IDs."),
 ):
     sample_solutions(
         model_name=model_name,
@@ -332,7 +332,7 @@ def cli_sample_solutions(
         exclude_mutation_types=exclude_mutation_types,
         gcs_bucket_name=gcs_bucket_name,
         gcs_project_name=gcs_project_name,
-        completed=completed,
+        completed=completed.split(','),
         inference_server_url=inference_server
     )
 
