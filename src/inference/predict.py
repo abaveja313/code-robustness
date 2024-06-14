@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 import retrying
 from loguru import logger
-from openai import OpenAI, APITimeoutError
+from openai import OpenAI, APITimeoutError, APIError
 from transformers import AutoTokenizer
 
 from inference.dataset_manager import DatasetManager
@@ -114,7 +114,7 @@ class InferenceEngine:
         return prompt
 
     @retrying.retry(
-        retry_on_exception=lambda e: isinstance(e, APITimeoutError),
+        retry_on_exception=lambda e: isinstance(e, APIError),
         wait_fixed=15000,
         stop_max_attempt_number=3
     )
