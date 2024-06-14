@@ -5,6 +5,7 @@ from concurrent.futures import as_completed
 from itertools import chain
 from typing import List, Dict, Tuple
 
+import openai
 import tqdm
 import typer
 from loguru import logger
@@ -113,6 +114,8 @@ def sample_problem_solutions(
                 ident = future_ident_mapping[future]
                 evaluate_targets[ident]['original'] = completions['original']
                 evaluate_targets[ident]['mutated'] = completions['mutated']
+            except openai.APITimeoutError:
+                raise
             except Exception:
                 logger.exception("Error during evaluation")
 
