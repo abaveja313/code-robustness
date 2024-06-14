@@ -1,8 +1,9 @@
 from typing import Any
 
 import numpy as np
+import retrying
 from loguru import logger
-from openai import OpenAI
+from openai import OpenAI, APITimeoutError
 from transformers import AutoTokenizer
 
 from inference.dataset_manager import DatasetManager
@@ -26,7 +27,8 @@ class InferenceEngine:
     ):
         self.llm = OpenAI(
             api_key="EMPTY",
-            base_url=server_url
+            base_url=server_url,
+            timeout=None
         )
 
         self.model_name = model_name
@@ -111,11 +113,17 @@ class InferenceEngine:
         ).split(self._MAGIC_SPLITTER_)[0]
         return prompt
 
+    @retrying.retry(
+        retry_on_exception=lambda e: isinstance(e, APITimeoutError),
+        wait_fixed=15000,
+        stop_max_attempt_number=3
+    )
     def generate(self, prompt: str, num_samples: int, temp: float, logprobs: bool):
         model_outputs = self.llm.completions.create(
             model=self.model_name,
             prompt=prompt,
             n=num_samples,
+            timeout=None,
             **(self.sampling_params | {"temperature": temp, "logprobs": logprobs})
         )
         sequences = []

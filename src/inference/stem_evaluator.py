@@ -27,7 +27,7 @@ class StemEvaluator:
             batch_size: int = 250,
             restart_size: int = 25000
     ):
-        self.dataset_manager = dataset_manager
+        self.dataset_manager = dataset_panager
         self.num_samples = num_samples
         self.problem_id = problem_id
         self.k = k
