@@ -26,7 +26,7 @@ from shared.structs import MutatedStem, BenchmarkResult
 logger.remove()
 # Configure the console logger
 hash_filter = LongMessageHashFilter(
-    min_length=100,
+    min_length=200,
     max_cache_size=512,
     ttl=timedelta(minutes=10)
 )
