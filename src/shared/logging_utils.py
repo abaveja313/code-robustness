@@ -1,9 +1,10 @@
 import random
 import threading
 from contextlib import contextmanager
+from datetime import timedelta
 from hashlib import md5
 
-from cachetools import LRUCache
+from cachetools import TTLCache
 from loguru import logger
 
 
@@ -13,9 +14,9 @@ def prob_log(message: str, p=0.05):
 
 
 class LongMessageHashFilter:
-    def __init__(self, min_length, max_cache_size):
+    def __init__(self, min_length, max_cache_size, ttl: timedelta):
         self.min_length = min_length
-        self.cache = LRUCache(maxsize=max_cache_size)
+        self.cache = TTLCache(maxsize=max_cache_size, ttl=ttl.total_seconds())
         self.lock = threading.Lock()
 
     def __call__(self, record):

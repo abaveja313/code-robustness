@@ -2,6 +2,7 @@ import os
 import sys
 from collections import defaultdict
 from concurrent.futures import as_completed
+from datetime import timedelta
 from itertools import chain
 from typing import List, Dict, Tuple
 
@@ -26,7 +27,8 @@ logger.remove()
 # Configure the console logger
 hash_filter = LongMessageHashFilter(
     min_length=100,
-    max_cache_size=4096
+    max_cache_size=512,
+    ttl=timedelta(minutes=10)
 )
 logger.add(sys.stdout, format="{time} {level} {message} {extra[hash]}", level="INFO", filter=hash_filter)
 logger.add("logs/output.log", format="{time} {level} {message} {extra[hash]}", level="DEBUG", filter=hash_filter)
@@ -74,7 +76,7 @@ def sample_problem_solutions(
     evaluate_targets: Dict[str, Dict[str, str]] = defaultdict(dict)
     results = {}
 
-    with ThreadPool(max_workers=10, max_tasks=50) as executor:
+    with ThreadPool(max_workers=8, max_tasks=50) as executor:
         futures = []
         future_ident_mapping = {}
 
@@ -126,6 +128,8 @@ def sample_problem_solutions(
     }
     logger.info("Adding Data Pickle for Problem: {}", problem_id)
     result_manager.add_data_pickle(eval_target, problem_id)
+    del evaluate_targets
+    del results
 
 
 def sample_solutions(
