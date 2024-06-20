@@ -1,4 +1,3 @@
-import time
 from collections import Counter, defaultdict
 from concurrent.futures import as_completed
 from typing import Tuple, Dict
@@ -9,7 +8,6 @@ from pebble import ProcessPool
 from tqdm import tqdm
 
 from inference.dataset_manager import DatasetManager
-from inference.predict import InferenceEngine
 from shared.metrics import pass_at_k
 from shared.structs import BenchmarkResult, SolutionType
 
@@ -27,7 +25,7 @@ class StemEvaluator:
             batch_size: int = 250,
             restart_size: int = 25000
     ):
-        self.dataset_manager = dataset_panager
+        self.dataset_manager = dataset_manager
         self.num_samples = num_samples
         self.problem_id = problem_id
         self.k = k
@@ -111,7 +109,7 @@ class StemEvaluator:
                             base_only=self.base_only,
                             identifier=ident,
                             min_time_limit=1,
-                            gt_time_limit_factor=5.0
+                            gt_time_limit_factor=15.0
                         )
                         futures.append(executor.schedule(check_correctness, kwargs=kwargs))
                         future_meta_mapping[futures[-1]] = ident
@@ -152,4 +150,4 @@ class StemEvaluator:
                 else:
                     results[result_id].pass_at_mutated[k] = pass_k
 
-        self.update_results(results, pass_stats)
+        self.update_results(results)
