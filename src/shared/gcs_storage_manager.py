@@ -37,7 +37,7 @@ class GCSResultStorageManager:
                     if len(obj['results']) == 0:
                         raise ValueError("No results found in pickle")
 
-                    fres: BenchmarkResult = obj['results'].values()[0]
+                    fres: BenchmarkResult = list(obj['results'].values())[0]
                     yield fres.problem_id, obj['evaluate_targets'], obj['results']
 
     def add_data_pickle(self, eval_target: dict[str, Any], problem_id: str):
