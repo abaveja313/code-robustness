@@ -1,4 +1,5 @@
 import os
+import pathlib
 import sys
 from collections import defaultdict
 from concurrent.futures import as_completed
@@ -207,6 +208,7 @@ def sample_solutions(
 
 def evaluate_solutions(
         dataset_name: str,
+        model_name: str,
         dataset_mini: bool = True,
         dataset_noextreme: bool = False,
         base_only: bool = False,
@@ -215,11 +217,13 @@ def evaluate_solutions(
         batch_size: int = 250,
         restart_size: int = 25000,
         gcs_bucket_name: str = "amrit-research-samples",
-        gcs_project_name: str = "research"
+        gcs_project_name: str = "research",
+        service_account_path: pathlib.Path = pathlib.Path("/home/user/service-account.json")
 ):
     logger.info("Evaluating Solutions...")
     result_manager = GCSResultStorageManager(
-        model_name=dataset_name, bucket_name=gcs_bucket_name, project=gcs_project_name
+        model_name=model_name, bucket_name=gcs_bucket_name, project=gcs_project_name,
+        service_account_file=str(service_account_path.absolute())
     )
     dataset_manager = DatasetManager(
         dataset=dataset_name, mini=dataset_mini, noextreme=dataset_noextreme
@@ -242,7 +246,8 @@ def evaluate_solutions(
 
 @app.command(name="eval")
 def cli_evaluate_solutions(
-        dataset_name: str = typer.Argument(..., help="The name of the dataset."),
+        model_name: str = typer.Argument(..., help="The HF name of the model."),
+        dataset_name: str = typer.Option(..., help="The name of the dataset."),
         dataset_mini: bool = typer.Option(
             True, help="Whether to use a mini version of the dataset."
         ),
@@ -258,8 +263,12 @@ def cli_evaluate_solutions(
             "amrit-research-samples", help="Name of the GCS bucket."
         ),
         gcs_project_name: str = typer.Option("research", help="Name of the GCS project."),
+        service_account_path: pathlib.Path = typer.Option(pathlib.Path("/home/user/service-account.json"),
+                                                          exists=True,
+                                                          help="Path to service account file.")
 ):
     evaluate_solutions(
+        model_name=model_name,
         dataset_name=dataset_name,
         dataset_mini=dataset_mini,
         dataset_noextreme=dataset_noextreme,
@@ -269,7 +278,8 @@ def cli_evaluate_solutions(
         batch_size=batch_size,
         restart_size=restart_size,
         gcs_bucket_name=gcs_bucket_name,
-        gcs_project_name=gcs_project_name
+        gcs_project_name=gcs_project_name,
+        service_account_path=service_account_path
     )
 
 
