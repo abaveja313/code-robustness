@@ -125,12 +125,6 @@ class StemEvaluator:
                                 remaining.remove(future_meta_mapping[future])
                                 completed_jobs += 1
 
-                                if completed_jobs % self.restart_size == 0:
-                                    logger.warning("Completed jobs reached restart size... restarting executor")
-                                    executor.shutdown(wait=True, cancel_futures=True)
-                                    executor = ProcessPoolExecutor(max_workers=self.max_workers,
-                                                                   max_tasks_per_child=self.max_tasks)
-
                             futures = []
 
             for future in as_completed(futures):
