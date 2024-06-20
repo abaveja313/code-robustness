@@ -112,7 +112,7 @@ class StemEvaluator:
                             min_time_limit=1,
                             gt_time_limit_factor=5.0
                         )
-                        futures.append(executor.schedule(check_correctness, kwargs=kwargs))
+                        futures.append(executor.submit(check_correctness, **kwargs))
                         future_meta_mapping[futures[-1]] = ident
                         completion_id[ident] += 1
                         n_samples += 1
