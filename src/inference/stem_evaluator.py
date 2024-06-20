@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from concurrent.futures import as_completed
+from concurrent.futures import as_completed, ProcessPoolExecutor
 from typing import Tuple, Dict
 
 from evalplus.evaluate import check_correctness
@@ -13,7 +13,8 @@ from shared.structs import BenchmarkResult, SolutionType
 
 
 class StemEvaluator:
-    def __init__(
+    def \
+            __init__(
             self,
             dataset_manager: DatasetManager,
             problem_id: str,
@@ -89,7 +90,7 @@ class StemEvaluator:
         pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
         completed_jobs = 0
 
-        executor = ProcessPool(max_workers=self.max_workers, max_tasks=self.max_tasks)
+        executor = ProcessPoolExecutor(max_workers=self.max_workers, max_tasks_per_child=self.max_tasks)
         logger.info("Creating process pool with {} workers and {} tasks", self.max_workers, self.max_tasks)
 
         try:
@@ -109,7 +110,7 @@ class StemEvaluator:
                             base_only=self.base_only,
                             identifier=ident,
                             min_time_limit=1,
-                            gt_time_limit_factor=15.0
+                            gt_time_limit_factor=5.0
                         )
                         futures.append(executor.schedule(check_correctness, kwargs=kwargs))
                         future_meta_mapping[futures[-1]] = ident
@@ -120,15 +121,16 @@ class StemEvaluator:
                             logger.info("Reached batch size, waiting for completion...")
                             logger.debug("Remaining: {}", remaining)
                             for future in as_completed(futures):
+                                logger.info("Completed!!")
                                 self.process_future_result(future, future_meta_mapping, results, pass_stats)
                                 remaining.remove(future_meta_mapping[future])
                                 completed_jobs += 1
 
                                 if completed_jobs % self.restart_size == 0:
                                     logger.warning("Completed jobs reached restart size... restarting executor")
-                                    executor.stop()
-                                    executor.join()
-                                    executor = ProcessPool(max_workers=self.max_workers, max_tasks=self.max_tasks)
+                                    executor.shutdown(wait=True, cancel_futures=True)
+                                    executor = ProcessPoolExecutor(max_workers=self.max_workers,
+                                                                   max_tasks_per_child=self.max_tasks)
 
                             futures = []
 
