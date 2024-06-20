@@ -228,10 +228,10 @@ def evaluate_solutions(
     dataset_manager = DatasetManager(
         dataset=dataset_name, mini=dataset_mini, noextreme=dataset_noextreme
     )
-    for eval_target, results in tqdm.tqdm(result_manager.get_data_pickles()):
+    for problem_id, eval_target, results in tqdm.tqdm(result_manager.get_data_pickles()):
         evaluator = StemEvaluator(
             dataset_manager=dataset_manager,
-            problem_id=eval_target,
+            problem_id=problem_id,
             base_only=base_only,
             max_workers=max_workers,
             max_tasks=max_tasks,

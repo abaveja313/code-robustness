@@ -34,7 +34,9 @@ class GCSResultStorageManager:
             if file.endswith(".pkl"):
                 with self.gcs.open(file, "rb") as f:
                     obj = pickle.loads(f.read())
-                    yield obj['evaluate_targets'], obj['results']
+                    fres: list[BenchmarkResult] = next(obj['results'].values())
+                    problem_id = fres[0].problem_id
+                    yield problem_id, obj['evaluate_targets'], obj['results']
 
     def add_data_pickle(self, eval_target: dict[str, Any], problem_id: str):
         logger.info(f"Adding pickle to GCS")
