@@ -4,7 +4,6 @@ from typing import Tuple, Dict
 
 from evalplus.evaluate import check_correctness
 from loguru import logger
-from pebble import ProcessPool
 from tqdm import tqdm
 
 from inference.dataset_manager import DatasetManager
@@ -13,8 +12,7 @@ from shared.structs import BenchmarkResult, SolutionType
 
 
 class StemEvaluator:
-    def \
-            __init__(
+    def __init__(
             self,
             dataset_manager: DatasetManager,
             problem_id: str,
@@ -134,6 +132,10 @@ class StemEvaluator:
         finally:
             logger.warning("Shutting down executor...")
             executor.shutdown(wait=True, cancel_futures=True)
+
+        logger.info("Num Samples: {}", n_samples)
+        logger.info("Completed Jobs: {}", completed_jobs)
+        logger.info("Remaining Jobs: {}", len(remaining))
 
         for result_id, result_type in pass_stats:
             stats = pass_stats[(result_id, result_type)]

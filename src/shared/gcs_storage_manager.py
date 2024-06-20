@@ -23,9 +23,9 @@ class GCSResultStorageManager:
         self.bucket_name = bucket_name
         self.gcs = GCSFileSystem(project=project, token=service_account_file)
 
-    def add_all(self, results: list[BenchmarkResult]):
+    def add_all(self, results: dict[str, BenchmarkResult]):
         for result in results:
-            self.add(result)
+            self.add(results[result])
 
     def get_data_pickles(self):
         full_path = f"{self.bucket_name}/{self.model_name}/pickles/"
@@ -52,8 +52,8 @@ class GCSResultStorageManager:
         logger.info(f"Adding result to GCS")
         json_line = json.dumps(result.__dict__) + "\n"
 
-        full_path = (f"{self.bucket_name}/{self.model_name}/{result.problem_id}_{result.mutation}_{result.stem_id}_"
-                     f"{result.temp}.jsonl")
+        full_path = (f"{self.bucket_name}/{self.model_name}/{result.problem_id}/temp_{result.temp}/{result.mutation}"
+                     f"_{result.stem_id}_{result.temp}.jsonl")
 
         with self.gcs.open(full_path, "w") as f:
             f.write(json_line)
