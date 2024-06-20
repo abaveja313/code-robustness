@@ -34,9 +34,11 @@ class GCSResultStorageManager:
             if file.endswith(".pkl"):
                 with self.gcs.open(file, "rb") as f:
                     obj = pickle.loads(f.read())
-                    fres: list[BenchmarkResult] = next(obj['results'].values())
-                    problem_id = fres[0].problem_id
-                    yield problem_id, obj['evaluate_targets'], obj['results']
+                    if len(obj['results']) == 0:
+                        raise ValueError("No results found in pickle")
+
+                    fres: BenchmarkResult = obj['results'].values()[0]
+                    yield fres.problem_id, obj['evaluate_targets'], obj['results']
 
     def add_data_pickle(self, eval_target: dict[str, Any], problem_id: str):
         logger.info(f"Adding pickle to GCS")
