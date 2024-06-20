@@ -120,8 +120,7 @@ class StemEvaluator:
                         if len(futures) >= self.batch_size:
                             logger.info("Reached batch size, waiting for completion...")
                             logger.debug("Remaining: {}", remaining)
-                            for future in as_completed(futures):
-                                logger.info("Completed!!")
+                            for future in tqdm(as_completed(futures), total=len(futures)):
                                 self.process_future_result(future, future_meta_mapping, results, pass_stats)
                                 remaining.remove(future_meta_mapping[future])
                                 completed_jobs += 1
