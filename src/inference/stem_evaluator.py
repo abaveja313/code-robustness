@@ -140,8 +140,7 @@ class StemEvaluator:
 
         finally:
             logger.warning("Shutting down executor...")
-            executor.stop()
-            executor.join()
+            executor.shutdown(wait=True, cancel_futures=True)
 
         for result_id, result_type in pass_stats:
             stats = pass_stats[(result_id, result_type)]
