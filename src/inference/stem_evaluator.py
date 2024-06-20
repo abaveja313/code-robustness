@@ -90,7 +90,7 @@ class StemEvaluator:
         pass_stats = defaultdict(lambda: {"pass": 0, "total": 0})
         completed_jobs = 0
 
-        executor = ProcessPoolExecutor(max_workers=self.max_workers, max_tasks_per_child=self.max_tasks)
+        executor = ProcessPoolExecutor(max_workers=self.max_workers)
         logger.info("Creating process pool with {} workers and {} tasks", self.max_workers, self.max_tasks)
 
         try:
