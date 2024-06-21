@@ -30,7 +30,7 @@ class SeedStrategy(str, Enum):
 
 class DatasetManager:
     def __init__(
-        self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False
+            self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False
     ):
         self.dataset_name = dataset
         self.dataset_params = dict(mini=mini, noextreme=noextreme)

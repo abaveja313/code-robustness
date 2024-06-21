@@ -140,7 +140,8 @@ def sample_solutions(
         model_max_new_tokens: int = 1024,
         model_temps: Tuple[float] = (0.2, 0.5, 0.8),
         model_top_p: float = 0.9,
-        base_only: bool = False,
+        model_direct_completion: bool = False,
+        base_only: bool = True,
         dataset_mini: bool = True,
         dataset_noextreme: bool = False,
         canonical_passing_threshold: float = 0.85,
@@ -170,7 +171,8 @@ def sample_solutions(
             top_p=model_top_p,
             max_tokens=model_max_new_tokens
         ),
-        server_url=inference_server_url
+        server_url=inference_server_url,
+        direct_completion=model_direct_completion
     )
 
     if seed_problems is None:
@@ -254,7 +256,7 @@ def cli_evaluate_solutions(
         dataset_noextreme: bool = typer.Option(
             False, help="Whether to exclude extreme samples from the dataset."
         ),
-        base_only: bool = typer.Option(False, help="Whether to evaluate base model only."),
+        base_only: bool = typer.Option(True, help="Whether to evaluate base model only."),
         max_workers: int = typer.Option(32, help="Number of workers."),
         max_tasks: int = typer.Option(15, help="Number of tasks."),
         batch_size: int = typer.Option(250, help="Batch size."),
@@ -290,6 +292,7 @@ def cli_sample_solutions(
         model_max_new_tokens: int = typer.Option(
             1024, help="Maximum number of new tokens the model can generate."
         ),
+        direct_completion: bool = typer.Option(False, help="Whether to use direct completion."),
         # Codex used 0.95
         model_top_p: float = typer.Option(
             0.95, help="Top-p sampling parameter for the model.", min=0.0, max=1.0
@@ -332,6 +335,7 @@ def cli_sample_solutions(
     sample_solutions(
         model_name=model_name,
         model_temps=model_temps,
+        model_direct_completion=direct_completion,
         dataset_name=dataset_name,
         model_max_new_tokens=model_max_new_tokens,
         model_top_p=model_top_p,

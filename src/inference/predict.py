@@ -23,7 +23,8 @@ class InferenceEngine:
             server_url: str,
             sampling_args: dict[str, Any] = None,
             top_p: float = 0.95,
-            max_tokens: int = 1024
+            max_tokens: int = 1024,
+            direct_completion: bool = False
     ):
         self.llm = OpenAI(
             api_key="EMPTY",
@@ -46,23 +47,27 @@ class InferenceEngine:
             "\n#"
         ]
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-
         self.add_eos_for_task()
-        logger.info("Model EOS Terminators: {}", self.eos)
-
         self.sampling_params = sampling_args or {}
         self.sampling_params["stop"] = self.eos
         self.sampling_params |= {
             "top_p": top_p,
             "max_tokens": max_tokens,
         }
+        self.direct_completion = direct_completion
 
     def add_eos_for_task(self):
+        if self.tokenizer.eos is not None:
+            self.eos.append(self.tokenizer.eos)
+
         self.eos += ["\n```\n", "```", "\nassert", "assert", "\ndef", "# Test", "# test", "def test", "def main"]
 
     def make_function_codegen_prompt(self, problem_id: str) -> str:
         definition = self.dataset.get_problem(problem_id)["formatted_prompt"]
         # directly return prompt if it does not have a tokenizer.chat_template
+        if self.direct_completion:
+            return definition
+
         query = (
             "Complete the body of the below Python function such that it is self-contained and passes the "
             "corresponding tests. Write your code in a markdown code block, ending your response with ```. "
@@ -90,6 +95,9 @@ class InferenceEngine:
         return prompt
 
     def make_stem_completion_prompt(self, stem: str):
+        if self.direct_completion:
+            return stem
+
         query = (
             "Complete the rest of the below function such that it is self-contained and passes the "
             "corresponding tests. Write your code in a markdown code block, ending your response with ```. "
