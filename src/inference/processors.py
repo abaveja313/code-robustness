@@ -21,7 +21,7 @@ class Processors:
 
     @staticmethod
     def preprocess_stem(stem: str) -> str:
-        return remove_pass(stem)
+        return remove_pass(stem) + "\n"
 
     @staticmethod
     def postprocess_mutation(sequence: str) -> str:
