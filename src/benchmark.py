@@ -298,7 +298,7 @@ def cli_sample_solutions(
         model_max_new_tokens: int = typer.Option(
             1024, help="Maximum number of new tokens the model can generate."
         ),
-        tokenizer_name: str = typer.Argument(None, help="The name of the tokenizer (defaults to model)"),
+        tokenizer_name: str = typer.Option(None, help="The name of the tokenizer (defaults to model)"),
         direct_completion: bool = typer.Option(False, help="Whether to use direct completion."),
         # Codex used 0.95
         model_top_p: float = typer.Option(
