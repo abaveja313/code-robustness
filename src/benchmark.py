@@ -161,9 +161,11 @@ def sample_solutions(
         gcs_bucket_name: str = "amrit-research-samples",
         gcs_project_name: str = "research",
         completed: List[str] = None,
+        service_account_path: pathlib.Path = pathlib.Path("/home/user/service-account.json")
 ):
     result_manager = GCSResultStorageManager(
-        model_name=model_name, bucket_name=gcs_bucket_name, project=gcs_project_name
+        model_name=model_name, bucket_name=gcs_bucket_name, project=gcs_project_name,
+        service_account_file=str(service_account_path.absolute())
     )
     dataset_manager = DatasetManager(
         dataset=dataset_name, mini=dataset_mini, noextreme=dataset_noextreme
@@ -338,6 +340,9 @@ def cli_sample_solutions(
         ),
         gcs_project_name: str = typer.Option("research", help="Name of the GCS project."),
         completed: str = typer.Option((), help="Tuple of completed problem IDs."),
+        service_account_path: pathlib.Path = typer.Option(pathlib.Path("/home/user/service-account.json"),
+                                                          exists=True,
+                                                          help="Path to service account file.")
 ):
     sample_solutions(
         model_name=model_name,
@@ -362,7 +367,8 @@ def cli_sample_solutions(
         gcs_bucket_name=gcs_bucket_name,
         gcs_project_name=gcs_project_name,
         completed=completed.split(','),
-        inference_server_url=inference_server
+        inference_server_url=inference_server,
+        service_account_path=service_account_path
     )
 
 
