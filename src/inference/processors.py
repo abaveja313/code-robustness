@@ -1,4 +1,5 @@
 import ast
+import copy
 
 import black
 
@@ -45,6 +46,11 @@ class Processors:
 
     @staticmethod
     def postprocess_eval(sequence: str, direct: bool = False) -> str:
+        original_sequence = copy.copy(sequence)
+
+        if len(sequence.strip()) == 0:
+            raise PostprocessingException(sequence) from Exception("Refusing to postprocess empty code")
+
         transforms = (
             lambda code: code.rstrip("\n"),
             # Only for direct completion we need to fix indentation because the model messes it up occasionally
@@ -66,7 +72,7 @@ class Processors:
                 sequence = transform(sequence)
 
         except Exception as e:
-            raise PostprocessingException(sequence) from e
+            raise PostprocessingException(original_sequence) from e
         return sequence
 
     @staticmethod
