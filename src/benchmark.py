@@ -136,6 +136,7 @@ def sample_problem_solutions(
 
 def sample_solutions(
         model_name: str,
+        tokenizer_name: str,
         dataset_name: str,
         inference_server_url: str,
         model_max_new_tokens: int = 1024,
@@ -167,6 +168,7 @@ def sample_solutions(
 
     inference_engine = InferenceEngine(
         model_name=model_name,
+        tokenizer=tokenizer_name,
         dataset_manager=dataset_manager,
         sampling_args=dict(
             top_p=model_top_p,
@@ -293,6 +295,7 @@ def cli_sample_solutions(
         model_max_new_tokens: int = typer.Option(
             1024, help="Maximum number of new tokens the model can generate."
         ),
+        tokenizer_name: str = typer.Argument(None, help="The name of the tokenizer (defaults to model)"),
         direct_completion: bool = typer.Option(False, help="Whether to use direct completion."),
         # Codex used 0.95
         model_top_p: float = typer.Option(
@@ -336,6 +339,7 @@ def cli_sample_solutions(
     sample_solutions(
         model_name=model_name,
         model_temps=model_temps,
+        tokenizer_name=tokenizer_name,
         model_direct_completion=direct_completion,
         dataset_name=dataset_name,
         model_max_new_tokens=model_max_new_tokens,

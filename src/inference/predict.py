@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import retrying
@@ -23,7 +23,8 @@ class InferenceEngine:
             sampling_args: dict[str, Any] = None,
             top_p: float = 0.95,
             max_tokens: int = 1024,
-            direct_completion: bool = False
+            direct_completion: bool = False,
+            tokenizer: Optional[str] = None
     ):
         self.llm = OpenAI(
             api_key="EMPTY",
@@ -45,7 +46,7 @@ class InferenceEngine:
             "\nprint(",
             "\n#"
         ]
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer or self.model_name)
         self.add_eos_for_task()
         self.sampling_params = sampling_args or {}
         self.sampling_params["stop"] = self.eos
