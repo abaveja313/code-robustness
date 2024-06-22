@@ -33,6 +33,7 @@ class InferenceEngine:
         )
 
         self.model_name = model_name
+        self.direct_completion = direct_completion
 
         logger.info("Using model '{}' with params {}".format(model_name, sampling_args))
 
@@ -54,7 +55,6 @@ class InferenceEngine:
             "top_p": top_p,
             "max_tokens": max_tokens,
         }
-        self.direct_completion = direct_completion
 
     def add_eos_for_task(self):
         if hasattr(self.tokenizer, 'eos') and self.tokenizer.eos is not None:
