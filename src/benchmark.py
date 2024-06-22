@@ -26,13 +26,16 @@ from shared.structs import MutatedStem, BenchmarkResult
 
 logger.remove()
 # Configure the console logger
-hash_filter = LongMessageHashFilter(
-    min_length=200,
-    max_cache_size=512,
-    ttl=timedelta(minutes=10)
-)
-logger.add(sys.stdout, format="{time} {level} {message} {extra[hash]}", level="INFO", filter=hash_filter)
-logger.add("logs/output.log", format="{time} {level} {message} {extra[hash]}", level="DEBUG", filter=hash_filter)
+# hash_filter = LongMessageHashFilter(
+#     min_length=200,
+#     max_cache_size=512,
+#     ttl=timedelta(minutes=10)
+# )
+# logger.add(sys.stdout, format="{time} {level} {message} {extra[hash]}", level="INFO", filter=hash_filter)
+# logger.add("logs/output.log", format="{time} {level} {message} {extra[hash]}", level="DEBUG", filter=hash_filter)
+
+logger.add(sys.stdout, format="{time} {level} {message}", level="INFO")
+logger.add("logs/output.log", format="{time} {level} {message}", level="DEBUG")
 
 app = typer.Typer()
 

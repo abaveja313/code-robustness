@@ -60,6 +60,10 @@ class InferenceEngine:
         if hasattr(self.tokenizer, 'eos') and self.tokenizer.eos is not None:
             self.eos.append(self.tokenizer.eos)
 
+        if self.direct_completion:
+            self.eos += ['\ndef ', '\nclass ', '\nimport ', '\nfrom ', '\nassert ',
+                         '\n def ', '\n class ', '\n import ', '\n from ']
+
         self.eos += ["\n```\n", "```", "\nassert", "assert", "\ndef", "# Test", "# test", "def test", "def main"]
 
     def make_function_codegen_prompt(self, problem_id: str) -> str:
