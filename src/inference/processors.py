@@ -3,7 +3,7 @@ import copy
 
 import black
 
-from shared.program_utils import remove_pass, remove_comments_and_docstrings, adjust_indentation_after_docstring, \
+from shared.program_utils import remove_pass, remove_comments_and_docstrings, fix_odd_indents, \
     autopep8_normalize_ident, truncate_code_to_last_function
 
 
@@ -61,7 +61,7 @@ class Processors:
             # Only for direct completion we need to fix indentation because the model messes it up occasionally
             # ---
             lambda code: truncate_code_to_last_function(code) if direct else code,
-            lambda code: adjust_indentation_after_docstring(code) if direct else code,
+            lambda code: fix_odd_indents(code) if direct else code,
             lambda code: autopep8_normalize_ident(code) if direct else code,
             # ---
             lambda code: remove_comments_and_docstrings(code, remove_docstrings=False),

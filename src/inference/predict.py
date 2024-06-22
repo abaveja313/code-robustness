@@ -61,7 +61,7 @@ class InferenceEngine:
             self.eos += ['\ndef ', '\nclass ', '\nimport ', '\nfrom ', '\nassert ',
                          '\n def ', '\n class ', '\n import ', '\n from ', '\nif', '\n if', '\nwhile',
                          '\n while', '\nfor', '\n for', '\ntry', '\n try', '\nwith', '\n with', '\nraise',
-                         '\n raise', '\nassert', '\n assert']
+                         '\n raise', '\nassert', '\n assert', "\n'''", '\n"""']
 
         self.eos += ["\n```\n", "```", "\nassert", "assert", "\ndef", "# Test", "# test", "def test", "def main"]
 

@@ -98,38 +98,19 @@ def autopep8_normalize_ident(code):
     return autopep8.fix_code(code, options=options)
 
 
-def adjust_indentation_after_docstring(code):
-    lines = code.replace('\t', '    ').splitlines()
-    docstring_indent = None
-    in_docstring = False
-    adjusted_lines = []
+def fix_odd_indents(code):
+    lines = code.splitlines()
+    fixed_lines = []
 
-    for i, line in enumerate(lines):
-        stripped_line = line.lstrip()
-        leading_spaces = len(line) - len(stripped_line)
-
-        # Detect the start and end of a docstring
-        if stripped_line.startswith(('"""', "'''")):
-            if not in_docstring:
-                # Beginning of the first docstring
-                docstring_indent = leading_spaces
-                in_docstring = True
-            elif in_docstring and leading_spaces == docstring_indent:
-                # End of the first docstring
-                in_docstring = False
-            adjusted_lines.append(line)
-            continue
-
-        # Adjust indentation for lines after the docstring
-        if docstring_indent is not None and not in_docstring:
-            if leading_spaces == docstring_indent + 1:
-                adjusted_lines.append(' ' * (leading_spaces - 1) + stripped_line)
-            else:
-                adjusted_lines.append(line)
+    for line in lines:
+        indent_count = len(line) - len(line.lstrip())
+        if indent_count % 2 != 0:  # If odd number of indents
+            fixed_line = ' ' * (indent_count - 1) + line.lstrip()
         else:
-            adjusted_lines.append(line)
+            fixed_line = line
+        fixed_lines.append(fixed_line)
 
-    return '\n'.join(adjusted_lines)
+    return '\n'.join(fixed_lines)
 
 
 def transform_parenthesis(source_code):
