@@ -67,12 +67,10 @@ class Processors:
         return sequence
 
     @staticmethod
-    def split_sequences(
-        sequences: list[str], sids: list[str], samples_per_sequence: int
-    ):
+    def split_sequences(sequences: list[str], sids: list[str], samples_per_sequence: int):
         output = {}
         sid = 0
         for idx in range(0, len(sequences), samples_per_sequence):
-            output[sids[sid]] = sequences[idx : idx + samples_per_sequence]
+            output[sids[sid]] = sequences[idx: idx + samples_per_sequence]
             sid += 1
         return output
