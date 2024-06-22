@@ -3,6 +3,7 @@ import copy
 import io
 import textwrap
 import tokenize
+import re
 
 import autopep8
 from asttokens import asttokens
@@ -56,27 +57,37 @@ class TupleParenthesesTransformer(ast.NodeTransformer):
         return node
 
 
-def truncate_to_indent(code: str):
-    """
-    Truncate the code to the last non-empty line with an indentation level of greater
-    than 0 or 1.
-
-    Useful for removing evaluation lines that got through the stop sequences
-    """
+def truncate_code_to_last_function(code):
     lines = code.splitlines()
-    if not lines:
-        return code
+    function_start_pattern = re.compile(r'^\s*def\s+\w+\s*\(')
+    last_function_start = None
+    function_body_indent = None
 
-    idx = len(lines) - 1
-    while len(lines[idx]) - len(lines[idx].lstrip()) <= 1:
-        idx -= 1
-        if idx < 0:
-            raise ValueError("Could not find any non-empty line to truncate to")
+    # Find the start of the last top-level function
+    for i, line in enumerate(lines):
+        if function_start_pattern.match(line) and not line.strip().startswith(' '):
+            last_function_start = i
 
-    return "\n".join(lines[: idx + 1])
+    if last_function_start is not None:
+        # Find the indentation of the function body
+        for i in range(last_function_start + 1, len(lines)):
+            if lines[i].strip():  # First non-empty line after function definition
+                function_body_indent = len(lines[i]) - len(lines[i].lstrip())
+                break
+
+        # Find the end of the function
+        for i in range(last_function_start + 1, len(lines)):
+            line = lines[i]
+            if line.strip() and len(line) - len(line.lstrip()) <= 0:
+                return '\n'.join(lines[:i])
+
+        # If we've reached this point, the function extends to the end of the file
+        return '\n'.join(lines)
+    else:
+        return code  # No function definitions found, return the original code
 
 
-def fix_indentation_only(code):
+def autopep8_normalize_ident(code):
     """
     Attempt to fix the indentation of the code using autopep8.
     """
@@ -87,43 +98,38 @@ def fix_indentation_only(code):
     return autopep8.fix_code(code, options=options)
 
 
-def align_first_level_with_docstring(code):
-    """
-    Align all lines in the code to the nearest multiple of 4 spaces after the docstring.
+def adjust_indentation_after_docstring(code):
+    lines = code.replace('\t', '    ').splitlines()
+    docstring_indent = None
+    in_docstring = False
+    adjusted_lines = []
 
-    We need this function because codegen suite of models sometimes messes up the indentation
-    """
-    def remove_leading_spaces_until_multiple_of_four(lines):
-        aligned_lines = []
-        for line in lines:
-            stripped_line = line.lstrip()
-            leading_spaces = len(line) - len(stripped_line)
-            multiple_of_four_spaces = (leading_spaces // 4) * 4
-            aligned_lines.append(' ' * multiple_of_four_spaces + stripped_line)
-        return aligned_lines
-
-    lines = code.splitlines()
-    docstring_end_index = None
-
-    # Find the end of the docstring
     for i, line in enumerate(lines):
-        if line.strip().startswith('"""') or line.strip().startswith("'''"):
-            if docstring_end_index is None:
-                docstring_end_index = i
+        stripped_line = line.lstrip()
+        leading_spaces = len(line) - len(stripped_line)
+
+        # Detect the start and end of a docstring
+        if stripped_line.startswith(('"""', "'''")):
+            if not in_docstring:
+                # Beginning of the first docstring
+                docstring_indent = leading_spaces
+                in_docstring = True
+            elif in_docstring and leading_spaces == docstring_indent:
+                # End of the first docstring
+                in_docstring = False
+            adjusted_lines.append(line)
+            continue
+
+        # Adjust indentation for lines after the docstring
+        if docstring_indent is not None and not in_docstring:
+            if leading_spaces == docstring_indent + 1:
+                adjusted_lines.append(' ' * (leading_spaces - 1) + stripped_line)
             else:
-                docstring_end_index = i
-                break
+                adjusted_lines.append(line)
+        else:
+            adjusted_lines.append(line)
 
-    # Extract the portion after the docstring
-    post_docstring_lines = lines[docstring_end_index + 1:]
-
-    # Align the code after the docstring
-    aligned_lines = remove_leading_spaces_until_multiple_of_four(post_docstring_lines)
-
-    # Combine the docstring and aligned code
-    aligned_code = '\n'.join(lines[:docstring_end_index + 1] + aligned_lines)
-
-    return aligned_code
+    return '\n'.join(adjusted_lines)
 
 
 def transform_parenthesis(source_code):
