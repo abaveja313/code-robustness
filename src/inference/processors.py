@@ -2,7 +2,7 @@ import ast
 
 import black
 
-from shared.program_utils import remove_pass, remove_comments_and_docstrings
+from shared.program_utils import remove_pass, remove_comments_and_docstrings, normalize_indentation
 
 
 class PostprocessingException(Exception):
@@ -46,6 +46,7 @@ class Processors:
     def postprocess_eval(sequence: str):
         transforms = (
             lambda code: code.rstrip("\n"),
+            normalize_indentation,
             lambda c: remove_comments_and_docstrings(c, remove_docstrings=False),
             lambda code: black.format_str(
                 code,
