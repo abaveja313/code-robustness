@@ -1,3 +1,4 @@
+import copy
 from typing import Any, Optional
 
 import numpy as np
@@ -171,11 +172,12 @@ class InferenceEngine:
                 code=program_concat(problem["formatted_prompt"], sequence['text']),
                 probs=sequence['cumulative_logprob']
             )
+            original_code = copy.copy(solution.code)
             try:
                 solution.post_process(direct=self.direct_completion)
                 batch_solution.add_solution(solution)
             except Exception:
-                logger.exception(f"Error postprocessing solution:\n{solution.code}")
+                logger.exception(f"Error postprocessing solution:\n{original_code}")
                 errors.append(PostprocessingException(code=solution.code))
                 batch_solution.add_solution(Solution(code='', probs=0.0))
 
