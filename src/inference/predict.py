@@ -57,9 +57,6 @@ class InferenceEngine:
         }
 
     def add_eos_for_task(self):
-        if hasattr(self.tokenizer, 'eos') and self.tokenizer.eos is not None:
-            self.eos.append(self.tokenizer.eos)
-
         if self.direct_completion:
             self.eos += ['\ndef ', '\nclass ', '\nimport ', '\nfrom ', '\nassert ',
                          '\n def ', '\n class ', '\n import ', '\n from ', '\nif', '\n if', '\nwhile',
