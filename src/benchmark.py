@@ -34,8 +34,8 @@ logger.remove()
 # logger.add(sys.stdout, format="{time} {level} {message} {extra[hash]}", level="INFO", filter=hash_filter)
 # logger.add("logs/output.log", format="{time} {level} {message} {extra[hash]}", level="DEBUG", filter=hash_filter)
 
-logger.add(sys.stdout, format="{time} {level} {message}", level="INFO")
-logger.add("logs/output.log", format="{time} {level} {message}", level="DEBUG")
+logger.add(sys.stdout, format="{time} {level} {message} {thread}", level="INFO")
+logger.add("logs/output.log", format="{time} {level} {message} {thread}", level="DEBUG")
 
 app = typer.Typer()
 
