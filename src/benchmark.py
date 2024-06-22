@@ -168,7 +168,8 @@ def sample_solutions(
         service_account_file=str(service_account_path.absolute())
     )
     dataset_manager = DatasetManager(
-        dataset=dataset_name, mini=dataset_mini, noextreme=dataset_noextreme
+        dataset=dataset_name, mini=dataset_mini, noextreme=dataset_noextreme,
+        direct_completion=model_direct_completion
     )
 
     inference_engine = InferenceEngine(
