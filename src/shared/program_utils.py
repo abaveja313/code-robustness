@@ -56,7 +56,30 @@ class TupleParenthesesTransformer(ast.NodeTransformer):
         return node
 
 
+def truncate_to_indent(code: str):
+    """
+    Truncate the code to the last non-empty line with an indentation level of greater
+    than 0 or 1.
+
+    Useful for removing evaluation lines that got through the stop sequences
+    """
+    lines = code.splitlines()
+    if not lines:
+        return code
+
+    idx = len(lines) - 1
+    while len(lines[idx]) - len(lines[idx].lstrip()) <= 1:
+        idx -= 1
+        if idx < 0:
+            raise ValueError("Could not find any non-empty line to truncate to")
+
+    return "\n".join(lines[: idx + 1])
+
+
 def fix_indentation_only(code):
+    """
+    Attempt to fix the indentation of the code using autopep8.
+    """
     options = {
         'select': ['E101', 'E111', 'E114', 'E117'],
         'aggressive': 1
@@ -64,26 +87,21 @@ def fix_indentation_only(code):
     return autopep8.fix_code(code, options=options)
 
 
-def remove_leading_spaces_until_multiple_of_four(lines):
-    def count_leading_spaces(line):
-        return len(line) - len(line.lstrip(' '))
-
-    def remove_leading_spaces(line, spaces_to_remove):
-        return line[spaces_to_remove:] if spaces_to_remove <= len(line) else line
-
-    # Calculate the minimum number of leading spaces across all lines
-    min_leading_spaces = min(count_leading_spaces(line) for line in lines if line.strip() != '')
-
-    # Calculate how many spaces to remove to make indentation a multiple of 4
-    spaces_to_remove = min_leading_spaces % 4
-
-    # Adjust each line by removing the calculated number of leading spaces
-    adjusted_lines = [remove_leading_spaces(line, spaces_to_remove) for line in lines]
-
-    return adjusted_lines
-
-
 def align_first_level_with_docstring(code):
+    """
+    Align all lines in the code to the nearest multiple of 4 spaces after the docstring.
+
+    We need this function because codegen suite of models sometimes messes up the indentation
+    """
+    def remove_leading_spaces_until_multiple_of_four(lines):
+        aligned_lines = []
+        for line in lines:
+            stripped_line = line.lstrip()
+            leading_spaces = len(line) - len(stripped_line)
+            multiple_of_four_spaces = (leading_spaces // 4) * 4
+            aligned_lines.append(' ' * multiple_of_four_spaces + stripped_line)
+        return aligned_lines
+
     lines = code.splitlines()
     docstring_end_index = None
 
@@ -106,36 +124,6 @@ def align_first_level_with_docstring(code):
     aligned_code = '\n'.join(lines[:docstring_end_index + 1] + aligned_lines)
 
     return aligned_code
-
-
-def prepend_to_last_function_docstring(code, content_to_prepend):
-    class FunctionDocstringPrepend(ast.NodeTransformer):
-        def __init__(self):
-            self.last_function = None
-
-        def visit_FunctionDef(self, node):
-            self.last_function = node
-            self.generic_visit(node)
-            return node
-
-    tree = ast.parse(code)
-    transformer = FunctionDocstringPrepend()
-    transformer.visit(tree)
-
-    if transformer.last_function:
-        if transformer.last_function.body and isinstance(transformer.last_function.body[0], ast.Expr) and isinstance(
-                transformer.last_function.body[0].value, ast.Str):
-            # Function already has a docstring
-            docstring_node = transformer.last_function.body[0]
-            original_docstring = docstring_node.value.s
-            new_docstring = content_to_prepend + original_docstring
-            docstring_node.value = ast.Str(s=new_docstring)
-        else:
-            # Function doesn't have a docstring
-            new_docstring = ast.Expr(value=ast.Str(s=content_to_prepend))
-            transformer.last_function.body.insert(0, new_docstring)
-
-    return ast.unparse(tree)
 
 
 def transform_parenthesis(source_code):
@@ -168,7 +156,7 @@ def remove_pass(prompt: str) -> str:
     Remove `pass` statement from the end of the prompt.
 
     Since AST transformations have to produce valid code, we have to place
-    `pass` inside blocks whenever we mutate statement blocks. Before inference we want
+    `pass` inside blocks whenever we mutate statement blocks. Before inference, we want
     to remove it.
 
     Example Input:

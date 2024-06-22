@@ -4,7 +4,7 @@ import copy
 import black
 
 from shared.program_utils import remove_pass, remove_comments_and_docstrings, align_first_level_with_docstring, \
-    fix_indentation_only
+    fix_indentation_only, truncate_to_indent
 
 
 class PostprocessingException(Exception):
@@ -54,8 +54,11 @@ class Processors:
         transforms = (
             lambda code: code.rstrip("\n"),
             # Only for direct completion we need to fix indentation because the model messes it up occasionally
+            # ---
+            lambda code: truncate_to_indent(code) if direct else code,
             lambda code: align_first_level_with_docstring(code) if direct else code,
             lambda code: fix_indentation_only(code) if direct else code,
+            # ---
             lambda code: remove_comments_and_docstrings(code, remove_docstrings=False),
             lambda code: black.format_str(
                 code,
