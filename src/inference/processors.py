@@ -57,7 +57,7 @@ class Processors:
             raise PostprocessingException(sequence) from Exception("Refusing to postprocess empty code")
 
         transforms = (
-            lambda code: code.rstrip("\n").replace('\\', ''),
+            lambda code: code.rstrip("\n").replace('\\\n', ' '),
             # Only for direct completion we need to fix indentation because the model messes it up occasionally
             # ---
             lambda code: truncate_code_to_last_function(code) if direct else code,
