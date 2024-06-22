@@ -108,6 +108,39 @@ def align_first_level_with_docstring(code):
     return aligned_code
 
 
+def prepend_to_last_function_docstring(code, content_to_prepend):
+    class FunctionDocstringPrepend(ast.NodeTransformer):
+        def __init__(self):
+            self.last_function = None
+
+        def visit_FunctionDef(self, node):
+            self.last_function = node
+            self.generic_visit(node)
+            return node
+
+    tree = ast.parse(code)
+    transformer = FunctionDocstringPrepend()
+    transformer.visit(tree)
+
+    if transformer.last_function:
+        if transformer.last_function.body and isinstance(transformer.last_function.body[0], ast.Expr) and isinstance(
+                transformer.last_function.body[0].value, ast.Str):
+            # Function already has a docstring
+            docstring_node = transformer.last_function.body[0]
+            original_docstring = docstring_node.value.s
+            new_docstring = content_to_prepend + original_docstring
+            # print(repr(original_docstring))
+            # print(repr(new_docstring))
+            # raise Exception
+            docstring_node.value = ast.Str(s=new_docstring)
+        else:
+            # Function doesn't have a docstring
+            new_docstring = ast.Expr(value=ast.Str(s=content_to_prepend))
+            transformer.last_function.body.insert(0, new_docstring)
+
+    return ast.unparse(tree)
+
+
 def transform_parenthesis(source_code):
     atok = asttokens.ASTTokens(source_code, parse=True)
     tree = atok.tree

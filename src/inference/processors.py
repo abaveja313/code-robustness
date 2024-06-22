@@ -2,8 +2,7 @@ import ast
 
 import black
 
-from shared.program_utils import remove_pass, remove_comments_and_docstrings, align_first_level_with_docstring, \
-    fix_indentation_only
+from shared.program_utils import remove_pass, remove_comments_and_docstrings
 
 
 class PostprocessingException(Exception):
@@ -44,34 +43,19 @@ class Processors:
         return sequence
 
     @staticmethod
-    def postprocess_eval(sequence: str, direct: bool = False):
-        if direct:
-            transforms = (
-                lambda code: code.rstrip("\n"),
-                align_first_level_with_docstring,
-                fix_indentation_only,
-                lambda c: remove_comments_and_docstrings(c, remove_docstrings=False),
-                lambda code: black.format_str(
-                    code,
-                    mode=black.Mode(
-                        string_normalization=False,
-                        line_length=120,
-                        magic_trailing_comma=False,
-                    ),
+    def postprocess_eval(sequence: str):
+        transforms = (
+            lambda code: code.rstrip("\n"),
+            lambda c: remove_comments_and_docstrings(c, remove_docstrings=False),
+            lambda code: black.format_str(
+                code,
+                mode=black.Mode(
+                    string_normalization=False,
+                    line_length=120,
+                    magic_trailing_comma=False,
                 ),
-            )
-        else:
-            transforms = (
-                lambda code: code.rstrip("\n"),
-                lambda code: black.format_str(
-                    code,
-                    mode=black.Mode(
-                        string_normalization=False,
-                        line_length=120,
-                        magic_trailing_comma=False,
-                    ),
-                ),
-            )
+            ),
+        )
 
         try:
             for transform in transforms:

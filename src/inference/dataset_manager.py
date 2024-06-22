@@ -14,7 +14,7 @@ from radon.complexity import cc_visit
 from radon.metrics import h_visit
 from radon.raw import analyze
 from shared.ast_utils import get_function_declaration_line
-from shared.program_utils import IDENT
+from shared.program_utils import IDENT, prepend_to_last_function_docstring
 
 
 class Dataset(str, Enum):
@@ -30,10 +30,12 @@ class SeedStrategy(str, Enum):
 
 class DatasetManager:
     def __init__(
-            self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False
+            self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False,
+            direct_completion: bool = False
     ):
         self.dataset_name = dataset
         self.dataset_params = dict(mini=mini, noextreme=noextreme)
+        self.direct_completion = direct_completion
 
         self.dataset = None
         self.dataset_hash = None
@@ -88,6 +90,19 @@ class DatasetManager:
         logger.info(f"Dataset Seeds {self.dataset_name}: {seeds}")
         return seeds
 
+    def format_docstring(self, prompt: str):
+        equalize_ident = "\n" + ' ' * 3
+        if not self.direct_completion:
+            return prepend_to_last_function_docstring(prompt, equalize_ident)
+
+        instructions = f"""
+        This should be a complete function that solves the follows the below problem description, is self-contained, and passes the corresponding tests. 
+        Problem Description:
+        """
+        # Indent to 4 spaces
+        indented_instructions = textwrap.indent(textwrap.dedent(instructions), IDENT) + equalize_ident
+        return prepend_to_last_function_docstring(prompt, indented_instructions)
+
     def format_prompts(self):
         # Format:
         # def function_name(arg1, arg2, ...):
@@ -96,9 +111,11 @@ class DatasetManager:
         #   """
         if self.dataset_name == Dataset.HUMANEVAL:
             for problem_id in self.dataset:
-                self.dataset[problem_id]["formatted_prompt"] = self.dataset[problem_id][
-                    "prompt"
-                ]
+                prompt = self.dataset[problem_id]["prompt"]
+                prompt = self.format_docstring(prompt)
+
+                self.dataset[problem_id]["formatted_prompt"] = prompt
+
         elif self.dataset_name == Dataset.MBPP:
             for problem_id in self.dataset:
                 prompt = self.dataset[problem_id]["prompt"]
@@ -110,3 +127,12 @@ class DatasetManager:
                 indented_instructions = textwrap.indent(prompt, IDENT)
                 formatted = f"{function_declaration}\n{indented_instructions}"
                 self.dataset[problem_id]["formatted_prompt"] = formatted
+
+
+mgr = DatasetManager(
+    dataset=Dataset.HUMANEVAL,
+    direct_completion=True
+)
+
+mgr.format_prompts()
+print(mgr.get_problem("HumanEval/9")['formatted_prompt'])
