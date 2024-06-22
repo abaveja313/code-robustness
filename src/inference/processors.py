@@ -42,7 +42,11 @@ class Processors:
                 sequence = transform(sequence)
 
         except Exception as e:
-            raise PostprocessingException(sequence) from e
+            try:
+                # Suppress the original context of the exception to make things more readable
+                raise e from None
+            except Exception as eo:
+                raise PostprocessingException(sequence) from eo
         return sequence
 
     @staticmethod
