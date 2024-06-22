@@ -172,7 +172,7 @@ class InferenceEngine:
                 probs=sequence['cumulative_logprob']
             )
             try:
-                solution.post_process()
+                solution.post_process(direct=self.direct_completion)
                 batch_solution.add_solution(solution)
             except Exception:
                 logger.exception(f"Error postprocessing solution:\n{solution.code}")
@@ -208,7 +208,7 @@ class InferenceEngine:
                 )
                 last_solution = solution
                 try:
-                    solution.post_process()
+                    solution.post_process(direct=self.direct_completion)
                     batch_solutions[stem_name].add_solution(solution)
                 except Exception:
                     logger.exception(f"Error postprocessing solution:\n{solution.code}")
@@ -259,3 +259,4 @@ class InferenceEngine:
             original=original_predictions,
             mutated=mutated_predictions
         )
+

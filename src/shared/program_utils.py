@@ -4,6 +4,7 @@ import io
 import textwrap
 import tokenize
 
+import autopep8
 from asttokens import asttokens
 
 IDENT = " " * 4
@@ -55,6 +56,58 @@ class TupleParenthesesTransformer(ast.NodeTransformer):
         return node
 
 
+def fix_indentation_only(code):
+    options = {
+        'select': ['E101', 'E111', 'E114', 'E117'],
+        'aggressive': 1
+    }
+    return autopep8.fix_code(code, options=options)
+
+
+def remove_leading_spaces_until_multiple_of_four(lines):
+    def count_leading_spaces(line):
+        return len(line) - len(line.lstrip(' '))
+
+    def remove_leading_spaces(line, spaces_to_remove):
+        return line[spaces_to_remove:] if spaces_to_remove <= len(line) else line
+
+    # Calculate the minimum number of leading spaces across all lines
+    min_leading_spaces = min(count_leading_spaces(line) for line in lines if line.strip() != '')
+
+    # Calculate how many spaces to remove to make indentation a multiple of 4
+    spaces_to_remove = min_leading_spaces % 4
+
+    # Adjust each line by removing the calculated number of leading spaces
+    adjusted_lines = [remove_leading_spaces(line, spaces_to_remove) for line in lines]
+
+    return adjusted_lines
+
+
+def align_first_level_with_docstring(code):
+    lines = code.splitlines()
+    docstring_end_index = None
+
+    # Find the end of the docstring
+    for i, line in enumerate(lines):
+        if line.strip().startswith('"""') or line.strip().startswith("'''"):
+            if docstring_end_index is None:
+                docstring_end_index = i
+            else:
+                docstring_end_index = i
+                break
+
+    # Extract the portion after the docstring
+    post_docstring_lines = lines[docstring_end_index + 1:]
+
+    # Align the code after the docstring
+    aligned_lines = remove_leading_spaces_until_multiple_of_four(post_docstring_lines)
+
+    # Combine the docstring and aligned code
+    aligned_code = '\n'.join(lines[:docstring_end_index + 1] + aligned_lines)
+
+    return aligned_code
+
+
 def transform_parenthesis(source_code):
     atok = asttokens.ASTTokens(source_code, parse=True)
     tree = atok.tree
@@ -64,10 +117,10 @@ def transform_parenthesis(source_code):
     # Apply replacements
     new_source_code = copy.deepcopy(atok.text)
     for (start, end), new_tuple_src in sorted(
-        transformer.replacements, key=lambda x: x[0][0], reverse=True
+            transformer.replacements, key=lambda x: x[0][0], reverse=True
     ):
         new_source_code = (
-            new_source_code[:start] + new_tuple_src + new_source_code[end:]
+                new_source_code[:start] + new_tuple_src + new_source_code[end:]
         )
 
     return new_source_code
@@ -162,9 +215,9 @@ def remove_comments_and_docstrings(source, remove_docstrings=False):
             if token_string.startswith(MUTATED_COMMENT_PREFIX):
                 out += token_string
         elif (
-            token_type == tokenize.STRING
-            and remove_docstrings
-            and prev_toktype == tokenize.INDENT
+                token_type == tokenize.STRING
+                and remove_docstrings
+                and prev_toktype == tokenize.INDENT
         ):
             pass
         else:
@@ -209,15 +262,15 @@ def parse_stem(old_code: str, new_code: str, extra_skips: int = 0):
             break
     # Capture the function body from the new lines until the first difference
     while new_index < len(new_lines) and (
-        new_lines[new_index].strip() == ""
-        or new_lines[new_index].strip().startswith("#")
-        or new_lines[new_index].strip().startswith(('"""', "'''"))
+            new_lines[new_index].strip() == ""
+            or new_lines[new_index].strip().startswith("#")
+            or new_lines[new_index].strip().startswith(('"""', "'''"))
     ):
         new_index += 1
     while old_index < len(old_lines) and (
-        old_lines[old_index].strip() == ""
-        or old_lines[old_index].strip().startswith("#")
-        or old_lines[old_index].strip().startswith(('"""', "'''"))
+            old_lines[old_index].strip() == ""
+            or old_lines[old_index].strip().startswith("#")
+            or old_lines[old_index].strip().startswith(('"""', "'''"))
     ):
         old_index += 1
     # Ensure capturing the last line if the loop ended due to different lines

@@ -8,10 +8,10 @@ class Solution:
     probs: float
     failed_tests: list[int] = None
 
-    def post_process(self):
+    def post_process(self, direct: bool = False):
         from inference.processors import Processors
 
-        self.code = Processors.postprocess_eval(self.code)
+        self.code = Processors.postprocess_eval(self.code, direct=direct)
 
 
 class BatchSolution:
