@@ -13,8 +13,9 @@ from loguru import logger
 from radon.complexity import cc_visit
 from radon.metrics import h_visit
 from radon.raw import analyze
+
 from shared.ast_utils import get_function_declaration_line
-from shared.program_utils import IDENT, prepend_to_last_function_docstring
+from shared.program_utils import IDENT
 
 
 class Dataset(str, Enum):
@@ -90,19 +91,6 @@ class DatasetManager:
         logger.info(f"Dataset Seeds {self.dataset_name}: {seeds}")
         return seeds
 
-    def format_docstring(self, prompt: str):
-        equalize_ident = "\n" + ' ' * 3
-        if not self.direct_completion:
-            return prepend_to_last_function_docstring(prompt, equalize_ident)
-
-        instructions = f"""
-        This should be a complete function that solves the follows the below problem description, is self-contained, and passes the corresponding tests. 
-        Problem Description:
-        """
-        # Indent to 4 spaces
-        indented_instructions = textwrap.indent(textwrap.dedent(instructions), IDENT) + equalize_ident
-        return prepend_to_last_function_docstring(prompt, indented_instructions)
-
     def format_prompts(self):
         # Format:
         # def function_name(arg1, arg2, ...):
@@ -112,8 +100,6 @@ class DatasetManager:
         if self.dataset_name == Dataset.HUMANEVAL:
             for problem_id in self.dataset:
                 prompt = self.dataset[problem_id]["prompt"]
-                prompt = self.format_docstring(prompt)
-
                 self.dataset[problem_id]["formatted_prompt"] = prompt
 
         elif self.dataset_name == Dataset.MBPP:
@@ -135,4 +121,4 @@ mgr = DatasetManager(
 )
 
 mgr.format_prompts()
-print(mgr.get_problem("HumanEval/9")['formatted_prompt'])
+print(mgr.get_problem("HumanEval/0")['formatted_prompt'])

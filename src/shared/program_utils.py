@@ -129,9 +129,6 @@ def prepend_to_last_function_docstring(code, content_to_prepend):
             docstring_node = transformer.last_function.body[0]
             original_docstring = docstring_node.value.s
             new_docstring = content_to_prepend + original_docstring
-            # print(repr(original_docstring))
-            # print(repr(new_docstring))
-            # raise Exception
             docstring_node.value = ast.Str(s=new_docstring)
         else:
             # Function doesn't have a docstring

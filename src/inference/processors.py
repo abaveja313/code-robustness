@@ -2,7 +2,8 @@ import ast
 
 import black
 
-from shared.program_utils import remove_pass, remove_comments_and_docstrings
+from shared.program_utils import remove_pass, remove_comments_and_docstrings, align_first_level_with_docstring, \
+    fix_indentation_only
 
 
 class PostprocessingException(Exception):
@@ -43,10 +44,13 @@ class Processors:
         return sequence
 
     @staticmethod
-    def postprocess_eval(sequence: str):
+    def postprocess_eval(sequence: str, direct: bool = False) -> str:
         transforms = (
             lambda code: code.rstrip("\n"),
-            lambda c: remove_comments_and_docstrings(c, remove_docstrings=False),
+            # Only for direct completion we need to fix indentation because the model messes it up occasionally
+            lambda code: align_first_level_with_docstring(code) if direct else code,
+            lambda code: fix_indentation_only(code) if direct else code,
+            lambda code: remove_comments_and_docstrings(code, remove_docstrings=False),
             lambda code: black.format_str(
                 code,
                 mode=black.Mode(
