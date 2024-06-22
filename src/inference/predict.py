@@ -57,7 +57,7 @@ class InferenceEngine:
         self.direct_completion = direct_completion
 
     def add_eos_for_task(self):
-        if self.tokenizer.eos is not None:
+        if hasattr(self.tokenizer, 'eos') and self.tokenizer.eos is not None:
             self.eos.append(self.tokenizer.eos)
 
         self.eos += ["\n```\n", "```", "\nassert", "assert", "\ndef", "# Test", "# test", "def test", "def main"]
