@@ -3,14 +3,13 @@ from typing import Any
 import numpy as np
 import retrying
 from loguru import logger
-from openai import OpenAI, APITimeoutError, APIError
+from openai import OpenAI, APIError
 from transformers import AutoTokenizer
 
 from inference.dataset_manager import DatasetManager
 from inference.processors import Processors, PostprocessingException
 from shared.program_utils import program_concat
 from shared.structs import MutatedStem, Solution, BatchSolution, BenchmarkResult, SolutionType
-from shared.logging_utils import prob_log
 
 
 class InferenceEngine:
@@ -66,7 +65,7 @@ class InferenceEngine:
         definition = self.dataset.get_problem(problem_id)["formatted_prompt"]
         # directly return prompt if it does not have a tokenizer.chat_template
         if self.direct_completion:
-            return definition
+            return definition.strip()
 
         query = (
             "Complete the body of the below Python function such that it is self-contained and passes the "
@@ -96,7 +95,7 @@ class InferenceEngine:
 
     def make_stem_completion_prompt(self, stem: str):
         if self.direct_completion:
-            return stem
+            return stem.strip()
 
         query = (
             "Complete the rest of the below function such that it is self-contained and passes the "
@@ -121,18 +120,27 @@ class InferenceEngine:
         ).split(self._MAGIC_SPLITTER_)[0]
         return prompt
 
+    def get_sampling_params(self, problem_id: str, logprobs: bool, temp: float):
+        entrypoint = self.dataset.get_problem(problem_id)["entry_point"]
+        new_sampling_params = self.sampling_params.copy()
+        new_sampling_params["temperature"] = temp
+        new_sampling_params["logprobs"] = logprobs
+        new_sampling_params["stop"].append(f"\n{entrypoint}")
+        return new_sampling_params
+
     @retrying.retry(
         retry_on_exception=lambda e: isinstance(e, APIError),
         wait_fixed=15000,
         stop_max_attempt_number=3
     )
-    def generate(self, prompt: str, num_samples: int, temp: float, logprobs: bool):
+    def generate(self, problem_id: str, prompt: str, num_samples: int, temp: float, logprobs: bool):
+        new_sampling_params = self.get_sampling_params(problem_id, logprobs, temp)
         model_outputs = self.llm.completions.create(
             model=self.model_name,
             prompt=prompt,
             n=num_samples,
             timeout=None,
-            **(self.sampling_params | {"temperature": temp, "logprobs": logprobs})
+            **new_sampling_params
         )
         sequences = []
         for output in model_outputs.choices:
@@ -149,7 +157,7 @@ class InferenceEngine:
 
         logger.debug("Prompt:\n{}", prompt)
 
-        sequences = self.generate(prompt, num_samples, temperature, logprobs=True)
+        sequences = self.generate(problem_id, prompt, num_samples, temperature, logprobs=True)
 
         errors = []
         batch_solution = BatchSolution()
@@ -169,7 +177,7 @@ class InferenceEngine:
 
         return batch_solution, errors
 
-    def complete_stems(self, stem: MutatedStem, temperature: float, num_samples: int = 200):
+    def complete_stems(self, problem_id: str, stem: MutatedStem, temperature: float, num_samples: int = 200):
         prompts = [
             Processors.preprocess_stem(s)
             for s in [stem.original_stem, stem.mutated_stem]
@@ -182,8 +190,8 @@ class InferenceEngine:
 
         batch_solutions = dict(original=BatchSolution(), mutated=BatchSolution())
 
-        original_outputs = self.generate(prompts[0], num_samples, temperature, logprobs=False)
-        mutated_outputs = self.generate(prompts[1], num_samples, temperature, logprobs=False)
+        original_outputs = self.generate(problem_id, prompts[0], num_samples, temperature, logprobs=False)
+        mutated_outputs = self.generate(problem_id, prompts[1], num_samples, temperature, logprobs=False)
 
         errors = []
         last_solution = None
@@ -212,6 +220,7 @@ class InferenceEngine:
 
     def sample_stem_solutions(
             self,
+            problem_id: str,
             stem: MutatedStem,
             result: BenchmarkResult,
             temp: float,
@@ -226,6 +235,7 @@ class InferenceEngine:
         result.add_stem(stem)
 
         predictions, errors = self.complete_stems(
+            problem_id=problem_id,
             stem=stem, num_samples=num_samples,
             temperature=temp
         )

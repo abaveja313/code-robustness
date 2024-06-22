@@ -104,6 +104,7 @@ def sample_problem_solutions(
 
                     futures.append(executor.submit(
                         inference_engine.sample_stem_solutions,
+                        problem_id=problem_id,
                         stem=stem,
                         result=results[ident],
                         temp=tid,
