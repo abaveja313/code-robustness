@@ -174,6 +174,7 @@ def sample_solutions(
 
     inference_engine = InferenceEngine(
         model_name=model_name,
+        max_tokens=model_max_new_tokens,
         tokenizer=tokenizer_name,
         dataset_manager=dataset_manager,
         sampling_args=dict(
