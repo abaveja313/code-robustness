@@ -127,7 +127,7 @@ class InferenceEngine:
 
     def get_sampling_params(self, problem_id: str, logprobs: bool, temp: float):
         entrypoint = self.dataset.get_problem(problem_id)["entry_point"]
-        new_sampling_params = self.sampling_params.copy()
+        new_sampling_params = copy.deepcopy(self.sampling_params)
         new_sampling_params["temperature"] = temp
         new_sampling_params["logprobs"] = logprobs
         new_sampling_params["stop"].append(f"\n{entrypoint}")
