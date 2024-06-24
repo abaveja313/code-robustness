@@ -135,7 +135,7 @@ class InferenceEngine:
         new_sampling_params = copy.deepcopy(self.sampling_params)
         new_sampling_params.temperature = temp
         new_sampling_params.n = num_samples
-        return SamplingParams(**new_sampling_params)
+        return new_sampling_params
 
     def generate(self, prompts: dict[str, str], num_samples: int, temp: float):
         new_sampling_params = self.get_sampling_params(num_samples, temp)
