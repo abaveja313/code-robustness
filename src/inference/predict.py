@@ -163,7 +163,7 @@ class InferenceEngine:
 
         logger.debug("Prompt:\n{}", prompt)
 
-        sequences = self.generate(problem_id, prompt, num_samples, temperature, logprobs=True)['sample']
+        sequences = self.generate(prompt, num_samples, temperature, logprobs=True)['sample']
 
         errors = []
         batch_solution = BatchSolution()
