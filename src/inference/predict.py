@@ -152,7 +152,7 @@ class InferenceEngine:
             for output in prompt_gen.outputs:
                 sequence = {
                     'text': output.text,
-                    'cumulative_logprob': np.sum(output.logprobs.token_logprobs) if logprobs else -1.0
+                    'cumulative_logprob': output.cumulative_logprob if logprobs else -1.0
                 }
                 sequences[prompt_id].append(sequence)
 
