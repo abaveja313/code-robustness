@@ -80,7 +80,7 @@ def sample_problem_solutions(
     evaluate_targets: Dict[str, Dict[str, str]] = defaultdict(dict)
     results = {}
 
-    with ThreadPool(max_workers=2, max_tasks=25) as executor:
+    with ThreadPool(max_workers=1, max_tasks=25) as executor:
         futures = []
         future_ident_mapping = {}
 
