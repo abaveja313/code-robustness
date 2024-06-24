@@ -397,7 +397,7 @@ def cli_sample_solutions(
 ):
     Sampler.sample_solutions(
         model_name=model_name,
-        model_temps=list(map(int, model_temps.split(','))),
+        model_temps=tuple(map(float, model_temps.split(','))),
         tokenizer_name=tokenizer_name,
         model_direct_completion=direct_completion,
         dataset_name=dataset_name,
