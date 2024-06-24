@@ -132,7 +132,7 @@ class Sampler:
             dataset_name: str,
             tokenizer_name: str = None,
             model_max_new_tokens: int = 1024,
-            model_temps: tuple[float, ...] = (0.2, 0.5, 0.8),
+            model_temps: tuple[float, ...] = (0.3, 0.5, 0.7),
             model_top_p: float = 0.9,
             model_direct_completion: bool = False,
             base_only: bool = True,
@@ -180,6 +180,7 @@ class Sampler:
             completed: list of completed problems
             service_account_path: path to service account file
         """
+        logger.info("Temperatures: {}", model_temps)
         result_manager = GCSResultStorageManager(
             model_name=model_name,
             bucket_name=gcs_bucket_name,
@@ -344,7 +345,7 @@ def cli_evaluate_solutions(
 def cli_sample_solutions(
         model_name: str = typer.Argument(..., help="The HF name of the model."),
         model_temps: str = typer.Option(
-            ','.join(("0.3", "0.5", "0.7")), help="Temperatures to evaluate at."
+            "0.3,0.5,0.7", help="Temperatures to evaluate at."
         ),
         model_max_new_tokens: int = typer.Option(
             1024, help="Maximum number of new tokens the model can generate."
