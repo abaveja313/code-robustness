@@ -196,7 +196,6 @@ class InferenceEngine:
         batch_solutions = dict(original=BatchSolution(), mutated=BatchSolution())
 
         outputs = self.generate(prompts, num_samples, temperature)
-        print(outputs)
 
         errors = []
         last_solution = None
