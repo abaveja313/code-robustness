@@ -131,11 +131,6 @@ class InferenceEngine:
         new_sampling_params["logprobs"] = logprobs
         return new_sampling_params
 
-    @retrying.retry(
-        retry_on_exception=lambda e: isinstance(e, APIError),
-        wait_fixed=15000,
-        stop_max_attempt_number=3
-    )
     def generate(self, problem_id: str, prompt: str, num_samples: int, temp: float, logprobs: bool):
         new_sampling_params = self.get_sampling_params(problem_id, logprobs, temp)
         model_outputs = self.llm.completions.create(
@@ -260,4 +255,3 @@ class InferenceEngine:
             original=original_predictions,
             mutated=mutated_predictions
         )
-
