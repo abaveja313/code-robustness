@@ -1,6 +1,7 @@
 import copy
 from typing import Any, Optional
 
+import httpx
 import numpy as np
 import retrying
 from loguru import logger
@@ -137,7 +138,7 @@ class InferenceEngine:
             model=self.model_name,
             prompt=prompt,
             n=num_samples,
-            timeout=None,
+            timeout=httpx.Timeout(60),
             **new_sampling_params
         )
         sequences = []
