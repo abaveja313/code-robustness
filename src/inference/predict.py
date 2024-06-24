@@ -58,6 +58,7 @@ class InferenceEngine:
             "\nprint(",
             "\n#",
         ]
+        logger.info("Using Tokenizer model: {}", tokenizer or self.model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer or self.model_name)
         self.add_eos_for_task()
         self.sampling_params = SamplingParams(
