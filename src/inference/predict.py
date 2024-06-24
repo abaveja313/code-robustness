@@ -138,7 +138,7 @@ class InferenceEngine:
             model=self.model_name,
             prompt=prompt,
             n=num_samples,
-            timeout=httpx.Timeout(60),
+            timeout=httpx.Timeout(90),
             **new_sampling_params
         )
         sequences = []
