@@ -39,6 +39,7 @@ class InferenceEngine:
             "max_model_len": max_tokens,
             "enable_prefix_caching": enable_prefix_caching,
             "model": model_name,
+            "tokenizer": tokenizer or model_name
         }
 
         self.llm = LLM(**model_kwargs)
@@ -58,7 +59,6 @@ class InferenceEngine:
             "\nprint(",
             "\n#",
         ]
-        logger.info("Using Tokenizer model: {}", tokenizer or self.model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer or self.model_name)
         self.add_eos_for_task()
         self.sampling_params = SamplingParams(
