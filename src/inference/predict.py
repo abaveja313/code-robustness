@@ -70,7 +70,7 @@ class InferenceEngine:
                          '\n while', '\nfor', '\n for', '\ntry', '\n try', '\nwith', '\n with', '\nraise',
                          '\n raise', '\nassert', '\n assert', "\n'''", '\n"""']
 
-        self.eos += ["\n```\n", "```", "\nassert", "\ndef", "# Test", "# test"]
+        self.eos += ["\n```\n", "```", "\nassert", "\ndef", "# Test", "# test", "\ndef", "\nclass"]
 
     def make_function_codegen_prompt(self, problem_id: str) -> str:
         definition = self.dataset.get_problem(problem_id)["formatted_prompt"]
@@ -152,7 +152,7 @@ class InferenceEngine:
             for output in prompt_gen.outputs:
                 sequence = {
                     'text': output.text,
-                    'cumulative_logprob': output.cumulative_logprob if logprobs else -1.0
+                    'cumulative_logprob': output.cumulative_logprob
                 }
                 sequences[prompt_id].append(sequence)
 
