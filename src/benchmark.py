@@ -156,10 +156,7 @@ def sample_solutions(
         max_tokens=model_max_new_tokens,
         tokenizer=tokenizer_name,
         dataset_manager=dataset_manager,
-        sampling_args=dict(
-            top_p=model_top_p,
-            max_tokens=model_max_new_tokens
-        ),
+        top_p=model_top_p,
         direct_completion=model_direct_completion
     )
 

@@ -55,12 +55,13 @@ class InferenceEngine:
         ]
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer or self.model_name)
         self.add_eos_for_task()
-        self.sampling_params = sampling_args or {}
-        self.sampling_params["stop"] = self.eos
-        self.sampling_params |= {
-            "top_p": top_p,
-            "max_tokens": max_tokens,
-        }
+        self.sampling_params = SamplingParams(
+            top_p=top_p,
+            max_tokens=max_tokens,
+            stop=self.eos,
+            **(sampling_args or {})
+        )
+        logger.info("Sampling Parameters: {}", self.sampling_params)
 
     def add_eos_for_task(self):
         if self.direct_completion:
@@ -69,7 +70,7 @@ class InferenceEngine:
                          '\n while', '\nfor', '\n for', '\ntry', '\n try', '\nwith', '\n with', '\nraise',
                          '\n raise', '\nassert', '\n assert', "\n'''", '\n"""']
 
-        self.eos += ["\n```\n", "```", "\nassert", "assert", "\ndef", "# Test", "# test", "def test", "def main"]
+        self.eos += ["\n```\n", "```", "\nassert", "\ndef", "# Test", "# test"]
 
     def make_function_codegen_prompt(self, problem_id: str) -> str:
         definition = self.dataset.get_problem(problem_id)["formatted_prompt"]
@@ -130,15 +131,14 @@ class InferenceEngine:
         ).split(self._MAGIC_SPLITTER_)[0]
         return prompt
 
-    def get_sampling_params(self, num_samples: int, logprobs: bool, temp: float) -> SamplingParams:
+    def get_sampling_params(self, num_samples: int, temp: float) -> SamplingParams:
         new_sampling_params = self.sampling_params.copy()
         new_sampling_params["temperature"] = temp
-        new_sampling_params["logprobs"] = logprobs
         new_sampling_params["n"] = num_samples
         return SamplingParams(**new_sampling_params)
 
-    def generate(self, prompts: dict[str, str], num_samples: int, temp: float, logprobs: bool):
-        new_sampling_params = self.get_sampling_params(num_samples, logprobs, temp)
+    def generate(self, prompts: dict[str, str], num_samples: int, temp: float):
+        new_sampling_params = self.get_sampling_params(num_samples, temp)
         sorted_prompts = sorted(prompts.items(), key=lambda x: x[1])
         prompt_ids, prompt_conts = list(zip(*sorted_prompts))
 
@@ -163,7 +163,7 @@ class InferenceEngine:
 
         logger.debug("Prompt:\n{}", prompt)
 
-        sequences = self.generate(prompt, num_samples, temperature, logprobs=True)['sample']
+        sequences = self.generate(prompt, num_samples, temperature)['sample']
 
         errors = []
         batch_solution = BatchSolution()
@@ -195,10 +195,12 @@ class InferenceEngine:
 
         batch_solutions = dict(original=BatchSolution(), mutated=BatchSolution())
 
-        outputs = self.generate(prompts, num_samples, temperature, logprobs=False)
+        outputs = self.generate(prompts, num_samples, temperature)
+        print(outputs)
 
         errors = []
         last_solution = None
+
         for prompt_id in outputs:
             for sequence in outputs[prompt_id]:
                 prefix = stem.original_stem if prompt_id == "original" else stem.mutated_stem
