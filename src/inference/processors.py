@@ -22,7 +22,7 @@ class Processors:
     @staticmethod
     def preprocess_stem(stem: str) -> str:
         # Ensure that completion starts on a new line
-        return remove_pass(stem)
+        return remove_pass(stem).rstrip("\n") + "\n"
 
     @staticmethod
     def postprocess_mutation(sequence: str) -> str:
