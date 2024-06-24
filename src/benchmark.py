@@ -31,8 +31,8 @@ hash_filter = LongMessageHashFilter(
     max_cache_size=512,
     ttl=timedelta(minutes=10)
 )
-logger.add(sys.stdout, format="{time} {level} {thread} {message} {extra[hash]}", level="INFO", filter=hash_filter)
-logger.add("logs/output.log", format="{time} {level} {thread} {message} {extra[hash]}", level="DEBUG", filter=hash_filter)
+logger.add(sys.stdout, format="{time} {level} {message} {extra[hash]}", level="INFO", filter=hash_filter)
+logger.add("logs/output.log", format="{time} {level} {message} {extra[hash]}", level="DEBUG", filter=hash_filter)
 
 # logger.add(sys.stdout, format="{time} {thread} {level} {message} ", level="INFO")
 # logger.add("logs/output.log", format="{time} {thread} {level} {message}", level="DEBUG")
@@ -174,7 +174,7 @@ def sample_solutions(
 
     inference_engine = InferenceEngine(
         model_name=model_name,
-        max_tokens=model_max_new_tokens,
+        # max_tokens=model_max_new_tokens,
         tokenizer=tokenizer_name,
         dataset_manager=dataset_manager,
         sampling_args=dict(

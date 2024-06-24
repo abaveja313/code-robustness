@@ -22,7 +22,7 @@ class Processors:
     @staticmethod
     def preprocess_stem(stem: str) -> str:
         # Ensure that completion starts on a new line
-        return remove_pass(stem).rstrip('\n') + "\n"
+        return remove_pass(stem)
 
     @staticmethod
     def postprocess_mutation(sequence: str) -> str:
@@ -40,14 +40,9 @@ class Processors:
         try:
             for transform in transforms:
                 sequence = transform(sequence)
-
+            return sequence
         except Exception as e:
-            try:
-                # Suppress the original context of the exception to make things more readable
-                raise e from None
-            except Exception as eo:
-                raise PostprocessingException(sequence) from eo
-        return sequence
+            raise PostprocessingException(sequence) from e
 
     @staticmethod
     def postprocess_eval(sequence: str, direct: bool = False) -> str:
