@@ -2,16 +2,13 @@ import os
 import pathlib
 import sys
 from collections import defaultdict
-from concurrent.futures import as_completed
 from datetime import timedelta
 from itertools import chain
 from typing import List, Dict, Tuple
 
-import openai
 import tqdm
 import typer
 from loguru import logger
-from pebble import ThreadPool
 
 from canonical import MaxProbInitializer
 from canonical.max_prob_initializer import NoPassingSolutionException
@@ -54,7 +51,6 @@ def sample_problem_solutions(
         exclude_mutation_types: list[CRT] = None,
         base_only: bool = False,
 ):
-    # Adding a unique file handler for each problem_id
     logger.info("Finding canonical solution...")
     initializer = MaxProbInitializer(
         inference_engine=inference_engine,
@@ -80,53 +76,37 @@ def sample_problem_solutions(
     evaluate_targets: Dict[str, Dict[str, str]] = defaultdict(dict)
     results = {}
 
-    with ThreadPool(max_workers=1, max_tasks=25) as executor:
-        futures = []
-        future_ident_mapping = {}
+    for mid, mutation in enumerate(pbar):
+        pbar.set_description(f"{mutation.__name__}")
+        stems: list[MutatedStem] = mutation().get_transformations(
+            current_text=canonical_solution.code
+        )
+        if len(stems) == 0:
+            logger.info("Skipping mutation as it produced no output")
+            continue
 
-        for mid, mutation in enumerate(pbar):
-            pbar.set_description(f"{mutation.__name__}")
-            stems: list[MutatedStem] = mutation().get_transformations(
-                current_text=canonical_solution.code
-            )
-            if len(stems) == 0:
-                logger.info("Skipping mutation as it produced no output")
-                continue
+        for sid, stem in enumerate(tqdm.tqdm(stems)):
+            for tid in model_temps:
+                logger.info("Processing {}-{}-{}-T{}...", problem_id, mid, sid, tid)
+                ident = f"{problem_id}-{mid}-{sid}-T{tid}"
+                results[ident] = BenchmarkResult(
+                    problem_id=problem_id,
+                    stem_id=str(sid),
+                    mutation_id=str(mid),
+                    mutation=mutation.__name__,
+                    temp=tid
+                )
 
-            for sid, stem in enumerate(tqdm.tqdm(stems)):
-                for tid in model_temps:
-                    logger.info("Submitting {}-{}-{}-T{}...", problem_id, mid, sid, tid)
-                    ident = f"{problem_id}-{mid}-{sid}-T{tid}"
-                    results[ident] = BenchmarkResult(
-                        problem_id=problem_id,
-                        stem_id=str(sid),
-                        mutation_id=str(mid),
-                        mutation=mutation.__name__,
-                        temp=tid
-                    )
-
-                    futures.append(executor.submit(
-                        inference_engine.sample_stem_solutions,
-                        problem_id=problem_id,
-                        stem=stem,
-                        result=results[ident],
-                        temp=tid,
-                        num_samples=scoring_samples
-                    ))
-                    future_ident_mapping[futures[-1]] = ident
-
-        for future in tqdm.tqdm(as_completed(futures), total=len(futures)):
-            try:
-                completions = future.result()
-                ident = future_ident_mapping[future]
+                completions = inference_engine.sample_stem_solutions(
+                    stem=stem,
+                    result=results[ident],
+                    temp=tid,
+                    num_samples=scoring_samples
+                )
                 evaluate_targets[ident]['original'] = completions['original']
                 evaluate_targets[ident]['mutated'] = completions['mutated']
-            except openai.APITimeoutError:
-                raise
-            except Exception:
-                logger.exception("Error during evaluation")
 
-        # Temporary saving in case things go wrong
+    # Temporary saving in case things go wrong
     eval_target = {
         'evaluate_targets': evaluate_targets,
         'results': results
@@ -141,7 +121,6 @@ def sample_solutions(
         model_name: str,
         tokenizer_name: str,
         dataset_name: str,
-        inference_server_url: str,
         model_max_new_tokens: int = 1024,
         model_temps: Tuple[float] = (0.2, 0.5, 0.8),
         model_top_p: float = 0.9,
@@ -174,14 +153,13 @@ def sample_solutions(
 
     inference_engine = InferenceEngine(
         model_name=model_name,
-        # max_tokens=model_max_new_tokens,
+        max_tokens=model_max_new_tokens,
         tokenizer=tokenizer_name,
         dataset_manager=dataset_manager,
         sampling_args=dict(
             top_p=model_top_p,
             max_tokens=model_max_new_tokens
         ),
-        server_url=inference_server_url,
         direct_completion=model_direct_completion
     )
 
@@ -309,7 +287,6 @@ def cli_sample_solutions(
             0.95, help="Top-p sampling parameter for the model.", min=0.0, max=1.0
         ),
         base_only: bool = typer.Option(False, help="Whether to evaluate base model only."),
-        inference_server: str = typer.Option("http://localhost:5002", help="Inference server URL."),
         dataset_name: Dataset = typer.Option(Dataset.MBPP, help="The name of the dataset."),
         dataset_mini: bool = typer.Option(
             True, help="Whether to use a mini version of the dataset."
@@ -369,7 +346,6 @@ def cli_sample_solutions(
         gcs_bucket_name=gcs_bucket_name,
         gcs_project_name=gcs_project_name,
         completed=completed.split(','),
-        inference_server_url=inference_server,
         service_account_path=service_account_path
     )
 

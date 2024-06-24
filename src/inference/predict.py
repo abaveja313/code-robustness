@@ -1,17 +1,17 @@
 import copy
+import os
 from typing import Any, Optional
 
-import httpx
 import numpy as np
-import retrying
 from loguru import logger
-from openai import OpenAI, APIError
+from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 
 from inference.dataset_manager import DatasetManager
 from inference.processors import Processors, PostprocessingException
 from shared.program_utils import program_concat
 from shared.structs import MutatedStem, Solution, BatchSolution, BenchmarkResult, SolutionType
+from shared.logging_utils import log_time
 
 
 class InferenceEngine:
@@ -21,18 +21,22 @@ class InferenceEngine:
             self,
             model_name: str,
             dataset_manager: DatasetManager,
-            server_url: str,
             sampling_args: dict[str, Any] = None,
             top_p: float = 0.95,
             max_tokens: int = 1024,
+            enable_prefix_caching: bool = False,
             direct_completion: bool = False,
             tokenizer: Optional[str] = None
     ):
-        self.llm = OpenAI(
-            api_key="EMPTY",
-            base_url=server_url,
-            timeout=None
-        )
+        model_kwargs = {
+            "tensor_parallel_size": int(os.getenv("VLLM_N_GPUS", 1)),
+            "trust_remote_code": True,
+            "max_model_len": max_tokens,
+            "enable_prefix_caching": enable_prefix_caching,
+            "model": model_name,
+        }
+
+        self.llm = LLM(**model_kwargs)
 
         self.model_name = model_name
         self.direct_completion = direct_completion
@@ -126,38 +130,40 @@ class InferenceEngine:
         ).split(self._MAGIC_SPLITTER_)[0]
         return prompt
 
-    def get_sampling_params(self, problem_id: str, logprobs: bool, temp: float):
+    def get_sampling_params(self, num_samples: int, logprobs: bool, temp: float) -> SamplingParams:
         new_sampling_params = self.sampling_params.copy()
         new_sampling_params["temperature"] = temp
         new_sampling_params["logprobs"] = logprobs
-        return new_sampling_params
+        new_sampling_params["n"] = num_samples
+        return SamplingParams(**new_sampling_params)
 
-    def generate(self, problem_id: str, prompt: str, num_samples: int, temp: float, logprobs: bool):
-        new_sampling_params = self.get_sampling_params(problem_id, logprobs, temp)
-        model_outputs = self.llm.completions.create(
-            model=self.model_name,
-            prompt=prompt,
-            n=num_samples,
-            timeout=httpx.Timeout(35),
-            **new_sampling_params
-        )
-        sequences = []
-        for output in model_outputs.choices:
-            sequence = {
-                'text': output.text,
-                'cumulative_logprob': np.sum(output.logprobs.token_logprobs) if logprobs else -1.0
-            }
-            sequences.append(sequence)
+    def generate(self, prompts: dict[str, str], num_samples: int, temp: float, logprobs: bool):
+        new_sampling_params = self.get_sampling_params(num_samples, logprobs, temp)
+        sorted_prompts = sorted(prompts.items(), key=lambda x: x[1])
+        prompt_ids, prompt_conts = list(zip(*sorted_prompts))
 
-        del new_sampling_params
+        sequences = {}
+
+        with log_time("Sampling {} sequences".format(num_samples)):
+            model_outputs = self.llm.generate(prompt_conts, sampling_params=new_sampling_params)
+
+        for prompt_id, prompt_gen in zip(prompt_ids, model_outputs):
+            sequences[prompt_id] = []
+            for output in prompt_gen.outputs:
+                sequence = {
+                    'text': output.text,
+                    'cumulative_logprob': np.sum(output.logprobs.token_logprobs) if logprobs else -1.0
+                }
+                sequences[prompt_id].append(sequence)
+
         return sequences
 
     def predict_solutions(self, problem_id: str, num_samples: int = 200, temperature: float = 0.8):
-        prompt = self.make_function_codegen_prompt(problem_id)
+        prompt = {"sample": self.make_function_codegen_prompt(problem_id)}
 
         logger.debug("Prompt:\n{}", prompt)
 
-        sequences = self.generate(problem_id, prompt, num_samples, temperature, logprobs=True)
+        sequences = self.generate(problem_id, prompt, num_samples, temperature, logprobs=True)['sample']
 
         errors = []
         batch_solution = BatchSolution()
@@ -178,27 +184,24 @@ class InferenceEngine:
 
         return batch_solution, errors
 
-    def complete_stems(self, problem_id: str, stem: MutatedStem, temperature: float, num_samples: int = 200):
-        prompts = [
-            Processors.preprocess_stem(s)
-            for s in [stem.original_stem, stem.mutated_stem]
-        ]
-
-        prompts = [self.make_stem_completion_prompt(s) for s in prompts]
+    def complete_stems(self, stem: MutatedStem, temperature: float, num_samples: int = 200):
+        prompts = {"original": stem.original_stem, "mutated": stem.mutated_stem}
+        for prompt in prompts:
+            prompts[prompt] = Processors.preprocess_stem(prompt)
+            prompts[prompt] = self.make_stem_completion_prompt(prompts[prompt])
 
         for prompt in prompts:
             logger.debug("Prompt:\n{}", prompt)
 
         batch_solutions = dict(original=BatchSolution(), mutated=BatchSolution())
 
-        original_outputs = self.generate(problem_id, prompts[0], num_samples, temperature, logprobs=False)
-        mutated_outputs = self.generate(problem_id, prompts[1], num_samples, temperature, logprobs=False)
+        outputs = self.generate(prompts, num_samples, temperature, logprobs=False)
 
         errors = []
         last_solution = None
-        for prompt, sequences, stem_name in zip(prompts, [original_outputs, mutated_outputs], ["original", "mutated"]):
-            for sequence in sequences:
-                prefix = stem.original_stem if stem_name == "original" else stem.mutated_stem
+        for prompt_id in outputs:
+            for sequence in outputs[prompt_id]:
+                prefix = stem.original_stem if prompt_id == "original" else stem.mutated_stem
                 solution = Solution(
                     code=program_concat(prefix, sequence['text']),
                     probs=sequence['cumulative_logprob'],
@@ -206,22 +209,21 @@ class InferenceEngine:
                 last_solution = solution
                 try:
                     solution.post_process(direct=self.direct_completion)
-                    batch_solutions[stem_name].add_solution(solution)
+                    batch_solutions[prompt_id].add_solution(solution)
                 except Exception:
                     logger.exception(f"Error postprocessing solution:\n{solution.code}")
                     errors.append(
                         PostprocessingException(
-                            code=solution.code, mutated=stem_name == "mutated"
+                            code=solution.code, mutated=prompt_id == "mutated"
                         )
                     )
-                    batch_solutions[stem_name].add_solution(Solution(code='', probs=0.0))
+                    batch_solutions[prompt_id].add_solution(Solution(code='', probs=0.0))
 
         logger.info(f"Last Solution:\n{last_solution.code}")
         return batch_solutions, errors
 
     def sample_stem_solutions(
             self,
-            problem_id: str,
             stem: MutatedStem,
             result: BenchmarkResult,
             temp: float,
@@ -236,7 +238,6 @@ class InferenceEngine:
         result.add_stem(stem)
 
         predictions, errors = self.complete_stems(
-            problem_id=problem_id,
             stem=stem, num_samples=num_samples,
             temperature=temp
         )

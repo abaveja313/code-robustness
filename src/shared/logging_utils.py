@@ -1,5 +1,6 @@
 import random
 import threading
+import time
 from contextlib import contextmanager
 from datetime import timedelta
 from hashlib import md5
@@ -11,6 +12,17 @@ from loguru import logger
 def prob_log(message: str, p=0.05):
     if random.random() < p:
         logger.info(message)
+
+
+@contextmanager
+def log_time(op_name="Operation"):
+    start_time = time.time()
+    try:
+        yield
+    finally:
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        logger.info(f"{op_name} - Elapsed time: {elapsed_time:.2f} seconds ({elapsed_time * 1000:.2f} milliseconds)")
 
 
 class LongMessageHashFilter:
