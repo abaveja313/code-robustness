@@ -10,8 +10,6 @@ from loguru import logger
 
 from inference.dataset_manager import DatasetManager
 from inference.predict import InferenceEngine
-from shared.structs import BatchSolution
-
 from inference.processors import Processors
 
 
@@ -21,21 +19,19 @@ class NoPassingSolutionException(Exception):
 
 class MaxProbInitializer:
     def __init__(
-            self,
-            inference_engine: InferenceEngine,
-            dataset_manager: DatasetManager,
-            problem_id: str,
-            passing_threshold: float = 1.0,
-            num_samples: int = 300,
-            batch_size: int = 50,
-            min_correct_samples: int = 10,
-            base_only: bool = False,
+        self,
+        inference_engine: InferenceEngine,
+        dataset_manager: DatasetManager,
+        problem_id: str,
+        passing_threshold: float = 1.0,
+        num_samples: int = 300,
+        min_correct_samples: int = 10,
+        base_only: bool = False,
     ):
         self.inference_engine = inference_engine
         self.dataset_manager = dataset_manager
         self.problem_id = problem_id
         self.problem = self.dataset_manager.get_problem(problem_id)
-        self.batch_size = batch_size
         self.passing_threshold = passing_threshold
         self.num_samples = num_samples
         self.min_correct_samples = min_correct_samples
@@ -61,7 +57,7 @@ class MaxProbInitializer:
                 problem=self.problem,
                 solution=solution.code,
                 base_only=self.base_only,
-                gt_time_limit_factor=4.0,
+                gt_time_limit_factor=2.5,
             )
             logger.debug("Results: {}", eval_results)
 
@@ -101,7 +97,9 @@ class MaxProbInitializer:
         )
         self._print_stats("Success", pass_ratios)
 
-        canonical_solution.code = Processors.postprocess_canonical(canonical_solution.code)
+        canonical_solution.code = Processors.postprocess_canonical(
+            canonical_solution.code
+        )
         return canonical_solution
 
     def canonical_solution(self):

@@ -22,7 +22,9 @@ def log_time(op_name="Operation"):
     finally:
         end_time = time.time()
         elapsed_time = end_time - start_time
-        logger.info(f"{op_name} - Elapsed time: {elapsed_time:.2f} seconds ({elapsed_time * 1000:.2f} milliseconds)")
+        logger.info(
+            f"{op_name} - Elapsed time: {elapsed_time:.2f} seconds ({elapsed_time * 1000:.2f} milliseconds)"
+        )
 
 
 class LongMessageHashFilter:
@@ -32,7 +34,7 @@ class LongMessageHashFilter:
         self.lock = threading.Lock()
 
     def __call__(self, record):
-        record['extra']['hash'] = ''  # Default
+        record["extra"]["hash"] = ""  # Default
         log_message = record["message"]
 
         if len(log_message) < self.min_length:

@@ -31,8 +31,11 @@ class SeedStrategy(str, Enum):
 
 class DatasetManager:
     def __init__(
-            self, dataset: str = Dataset.MBPP, mini: bool = False, noextreme: bool = False,
-            direct_completion: bool = False
+        self,
+        dataset: str = Dataset.MBPP,
+        mini: bool = False,
+        noextreme: bool = False,
+        direct_completion: bool = False,
     ):
         self.dataset_name = dataset
         self.dataset_params = dict(mini=mini, noextreme=noextreme)
@@ -115,10 +118,7 @@ class DatasetManager:
                 self.dataset[problem_id]["formatted_prompt"] = formatted
 
 
-mgr = DatasetManager(
-    dataset=Dataset.HUMANEVAL,
-    direct_completion=True
-)
+mgr = DatasetManager(dataset=Dataset.HUMANEVAL, direct_completion=True)
 
 mgr.format_prompts()
-print(mgr.get_problem("HumanEval/0")['formatted_prompt'])
+print(mgr.get_problem("HumanEval/0")["formatted_prompt"])

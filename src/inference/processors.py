@@ -3,8 +3,13 @@ import copy
 
 import black
 
-from shared.program_utils import remove_pass, remove_comments_and_docstrings, fix_odd_indents, \
-    autopep8_normalize_ident, truncate_code_to_last_function
+from shared.program_utils import (
+    remove_pass,
+    remove_comments_and_docstrings,
+    fix_odd_indents,
+    autopep8_normalize_ident,
+    truncate_code_to_last_function,
+)
 
 
 class PostprocessingException(Exception):
@@ -49,10 +54,12 @@ class Processors:
         original_sequence = copy.copy(sequence)
 
         if len(sequence.strip()) == 0:
-            raise PostprocessingException(sequence) from Exception("Refusing to postprocess empty code")
+            raise PostprocessingException(sequence) from Exception(
+                "Refusing to postprocess empty code"
+            )
 
         transforms = (
-            lambda code: code.rstrip("\n").replace('\\\n', ' '),
+            lambda code: code.rstrip("\n").replace("\\\n", " "),
             # Only for direct completion we need to fix indentation because the model messes it up occasionally
             # ---
             lambda code: truncate_code_to_last_function(code) if direct else code,
@@ -79,10 +86,12 @@ class Processors:
         return sequence
 
     @staticmethod
-    def split_sequences(sequences: list[str], sids: list[str], samples_per_sequence: int):
+    def split_sequences(
+        sequences: list[str], sids: list[str], samples_per_sequence: int
+    ):
         output = {}
         sid = 0
         for idx in range(0, len(sequences), samples_per_sequence):
-            output[sids[sid]] = sequences[idx: idx + samples_per_sequence]
+            output[sids[sid]] = sequences[idx : idx + samples_per_sequence]
             sid += 1
         return output

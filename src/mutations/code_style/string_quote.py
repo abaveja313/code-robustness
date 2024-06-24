@@ -36,10 +36,10 @@ class StringQuoteTransformer:
 
         def find_nodes(node):
             if (
-                    isinstance(node, ast.Constant)
-                    and isinstance(node.value, str)
-                    and f"{self.old}" in self.atok.get_text(node)
-                    and not is_node_within_docstring(node, self.docstring_lines)
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and f"{self.old}" in self.atok.get_text(node)
+                and not is_node_within_docstring(node, self.docstring_lines)
             ):
                 nodes.append(node)
             for child in ast.iter_child_nodes(node):

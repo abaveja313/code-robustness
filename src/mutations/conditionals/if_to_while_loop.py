@@ -12,7 +12,7 @@ class IfToWhileLoopVisitor(OneByOneVisitor):
     def is_transformable(self, node):
         if not isinstance(node, ast.If):
             return False
-        if not hasattr(node, 'parent'):
+        if not hasattr(node, "parent"):
             return True
         return not (isinstance(node.parent, ast.If) and node in node.parent.orelse)
 

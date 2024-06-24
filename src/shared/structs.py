@@ -74,7 +74,7 @@ class BenchmarkResult:
         self.mutated_prefix = stem.mutated_stem
 
     def add_pass_ats(
-            self, pass_at_original: dict[int, Any], pass_at_mutated: dict[int, Any]
+        self, pass_at_original: dict[int, Any], pass_at_mutated: dict[int, Any]
     ):
         self.pass_at_original = pass_at_original
         self.pass_at_mutated = pass_at_mutated
