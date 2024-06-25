@@ -33,16 +33,18 @@ class InferenceEngine:
             direct_completion: bool = False,
             tokenizer: Optional[str] = None,
     ):
-        model_kwargs = {
+        # save for reinitialization later
+        self.model_kwargs = {
             "tensor_parallel_size": int(os.getenv("VLLM_N_GPUS", 1)),
             "trust_remote_code": True,
             "max_model_len": max_tokens,
             "enable_prefix_caching": enable_prefix_caching,
             "model": model_name,
-            "tokenizer": tokenizer or model_name
+            "tokenizer": tokenizer or model_name,
+            "distributed_worker_backend": "ray"
         }
 
-        self.llm = LLM(**model_kwargs)
+        self.llm = LLM(**self.model_kwargs)
 
         self.model_name = model_name
         self.direct_completion = direct_completion
@@ -183,9 +185,13 @@ class InferenceEngine:
         sequences = {}
 
         with log_time("Sampling {} sequences".format(num_samples)):
-            model_outputs = self.llm.generate(
-                prompt_conts, sampling_params=new_sampling_params
-            )
+            try:
+                model_outputs = self.llm.generate(
+                    prompt_conts, sampling_params=new_sampling_params
+                )
+            except RuntimeError:
+                logger.exception("Error encountered while generating sequences... restarting VLLM")
+                self._restart_vllm()
 
         for prompt_id, prompt_gen in zip(prompt_ids, model_outputs):
             sequences[prompt_id] = []
@@ -304,3 +310,28 @@ class InferenceEngine:
         original_predictions = predictions["original"].get_code()
         mutated_predictions = predictions["mutated"].get_code()
         return dict(original=original_predictions, mutated=mutated_predictions)
+
+    def _restart_vllm(self):
+        # Sometimes, we encounter memory leaks with VLLM which requires we restart VLLM executor
+        import gc
+        import torch
+        from vllm.distributed.parallel_state import destroy_model_parallel
+        import ray
+
+        logger.warning("Restarting VLLM executor")
+        try:
+            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+            logger.warning("Destroying model...")
+            destroy_model_parallel()
+            del self.llm.llm_engine.model_executor
+            del self.llm
+            gc.collect()
+            torch.cuda.empty_cache()
+            logger.warning("Shutting down Ray worker...")
+            ray.shutdown()
+        except Exception as e:
+            raise Exception("Error restarting VLLM") from e
+
+        logger.info("VLLM has been restarted. Reinitializing...")
+        self.llm = LLM(**self.model_kwargs)
+        logger.warning("VLLM has been recreated")
