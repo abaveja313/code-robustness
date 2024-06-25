@@ -1,5 +1,6 @@
 import copy
 import os
+import traceback
 from typing import Any, Optional
 
 from loguru import logger
@@ -266,7 +267,7 @@ class InferenceEngine:
                     solution.post_process(direct=self.direct_completion)
                     batch_solutions[prompt_id].add_solution(solution)
                 except Exception:
-                    logger.exception(f"Error postprocessing solution:\n{solution.code}")
+                    logger.error(f"Error postprocessing solution:\n{solution.code}\n\n{traceback.format_exc(120)}")
                     errors.append(
                         PostprocessingException(
                             code=solution.code, mutated=prompt_id == "mutated"
