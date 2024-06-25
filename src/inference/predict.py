@@ -177,8 +177,11 @@ class InferenceEngine:
         return new_sampling_params
 
     def generate(
-            self, prompts: dict[str, str], num_samples: int, temp: float, logprobs: bool
+            self, prompts: dict[str, str], num_samples: int, temp: float, logprobs: bool, max_tries: int = 3
     ):
+        if max_tries >= 3:
+            raise Exception("Max tries exceeded")
+
         new_sampling_params = self.get_sampling_params(num_samples, temp, logprobs)
         sorted_prompts = sorted(prompts.items(), key=lambda x: x[1])
         prompt_ids, prompt_conts = list(zip(*sorted_prompts))
@@ -193,6 +196,7 @@ class InferenceEngine:
             except RuntimeError:
                 logger.exception("Error encountered while generating sequences... restarting VLLM")
                 self._restart_vllm()
+                return self.generate(prompts, num_samples, temp, logprobs, max_tries=max_tries + 1)
 
         for prompt_id, prompt_gen in zip(prompt_ids, model_outputs):
             sequences[prompt_id] = []
