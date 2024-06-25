@@ -5,7 +5,6 @@ from typing import Any, Optional
 
 from loguru import logger
 from transformers import AutoTokenizer
-from vllm import LLM, SamplingParams
 
 from inference.dataset_manager import DatasetManager
 from inference.processors import Processors, PostprocessingException
@@ -34,6 +33,7 @@ class InferenceEngine:
             direct_completion: bool = False,
             tokenizer: Optional[str] = None,
     ):
+        from vllm import LLM, SamplingParams
         # save for reinitialization later
         self.model_kwargs = {
             "tensor_parallel_size": int(os.getenv("VLLM_N_GPUS", 1)),
@@ -168,7 +168,7 @@ class InferenceEngine:
 
     def get_sampling_params(
             self, num_samples: int, temp: float, logprobs: bool = False
-    ) -> SamplingParams:
+    ):
         new_sampling_params = copy.deepcopy(self.sampling_params)
         new_sampling_params.temperature = temp
         new_sampling_params.n = num_samples
