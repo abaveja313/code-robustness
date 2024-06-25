@@ -177,7 +177,7 @@ class InferenceEngine:
         return new_sampling_params
 
     def generate(
-            self, prompts: dict[str, str], num_samples: int, temp: float, logprobs: bool, max_tries: int = 3
+            self, prompts: dict[str, str], num_samples: int, temp: float, logprobs: bool, max_tries: int = 0
     ):
         if max_tries >= 3:
             raise Exception("Max tries exceeded")
