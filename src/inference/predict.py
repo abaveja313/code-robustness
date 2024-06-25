@@ -41,7 +41,7 @@ class InferenceEngine:
             "enable_prefix_caching": enable_prefix_caching,
             "model": model_name,
             "tokenizer": tokenizer or model_name,
-            "distributed_worker_backend": "ray"
+            "distributed_executor_backend": "ray"  # worker runs in separate process for restart after K/V cache OOM
         }
 
         self.llm = LLM(**self.model_kwargs)
